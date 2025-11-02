@@ -1,0 +1,108 @@
+/* === Global UI (light) used by main.jsx === */
+
+/* Light palette */
+:root {
+  --bg: #ffffff;
+  --panel: #fafafa;
+  --text: #111111;
+  --muted: #666666;
+  --blue: #1a73e8;
+  --blue-2: #1558b3;
+  --border: #dddddd;
+  --block: #000000; /* only used if you have dark blocks elsewhere */
+  --active: #ffe082; /* matches crossword active cell */
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+    "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  /* LIGHT background instead of dark gradient */
+  background: #fff;
+  color: var(--text);
+}
+
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.nav { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--blue);
+  background: var(--blue);
+  color: white;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+.btn:hover { background: var(--blue-2); }
+.btn.secondary {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn.secondary[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.link { color: var(--muted); }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.grid-and-sidebar {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .grid-and-sidebar { grid-template-columns: 1fr; }
+}
+
+/* Optional neutral shell for other grids in this layout.
+   IMPORTANT: do NOT style .cell here—leave crossword cells to app.css */
+.xw-grid {
+  display: grid;
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 1 / 1;
+  gap: 2px;
+  background: #000;           /* thin black separators if you use this wrapper */
+  border-radius: 0;           /* squared to match NYT look */
+  padding: 2px;
+}
+
+/* 🔴 REMOVED the old global .cell, .cell-block, .cell-active, .cell-input rules.
+   Those were forcing dark cells & rounding globally and overriding your crossword. */
+
+/* Sidebar cards (if you use them) */
+.sidebar { display: flex; flex-direction: column; gap: 12px; }
+.stats, .help, .actions {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+.stats div { margin-bottom: 6px; }

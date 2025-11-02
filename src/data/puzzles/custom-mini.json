@@ -1,0 +1,28 @@
+{
+  "title": "Custom Mini",
+  "size": 5,
+  "grid": [
+    ["#", "D", "I", "R", "T"],
+    ["B", "A", "K", "E", "R"],
+    ["A", "N", "N", "I", "E"],
+    ["S", "C", "O", "N", "E"],
+    ["S", "E", "W", "S", "#"]
+  ],
+  "clues": {
+    "across": {
+      "1": "Garden soil",
+      "5": "Bread maker",
+      "6": "Little Orphan",
+      "7": "Tea-time pastry",
+      "8": "Stitches"
+    },
+    "down": {
+      "1": "Move to music",
+      "2": "When the rythem hits",
+      "3": "Bridle straps",
+      "4": "Maple or elm",
+      "5": "Low voice or a fish"
+    }
+  },
+  "author": "You"
+}

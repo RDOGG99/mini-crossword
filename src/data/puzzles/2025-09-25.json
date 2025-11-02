@@ -1,0 +1,24 @@
+{
+  "title": "Animal Mini",
+  "size": 5,
+  "grid": [
+    ["#", "C", "A", "T", "#"],
+    ["D", "O", "G", "#", "#"],
+    ["#", "P", "I", "G", "#"],
+    ["F", "O", "X", "#", "#"],
+    ["#", "R", "A", "T", "#"]
+  ],
+  "clues": {
+    "across": {
+      "1": "Feline pet",
+      "3": "Rex",
+      "4": "Wilbur",
+      "5": "Clever canid",
+      "6": "Chef in the Hat"
+    },
+    "down": {
+      "1": "(5) — placeholder",
+      "2": "(5) — placeholder"
+    }
+  }
+}
