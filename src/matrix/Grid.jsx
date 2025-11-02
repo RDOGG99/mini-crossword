@@ -43,7 +43,8 @@ function formatLongDate(ymd) {
   }).format(d);
 }
 
-export default function Grid({ puzzle }) {
+// 👇 Accept a parent-controlled `started` (from Play.jsx). If omitted, fall back to internal state.
+export default function Grid({ puzzle, started: startedFromParent = undefined }) {
   if (!puzzle || !puzzle.grid) return <div style={{ padding: 12 }}>Loading puzzle…</div>;
 
   const { user } = useAuth();
@@ -72,9 +73,12 @@ export default function Grid({ puzzle }) {
   const [locked, setLocked] = useState(emptyLocked);
 
   const [isSolved, setIsSolved] = useState(false);
-  const [showFinishModal, setShowFinishModal] = useState(false);
 
+  // NOTE: internal started exists for legacy flows; parent prop takes precedence
   const [started, setStarted] = useState(false);
+  const startedEffective = (startedFromParent !== undefined) ? startedFromParent : started;
+
+  const [showFinishModal, setShowFinishModal] = useState(false);
   const [finishStats, setFinishStats] = useState(null);
   const [finishMeta, setFinishMeta] = useState(null);
 
@@ -82,6 +86,13 @@ export default function Grid({ puzzle }) {
   const [elapsedSec, setElapsedSec] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
   const handlePauseToggle = () => setTimerRunning((v) => !v);
+
+  // Auto-start timer when parent opens the game
+  useEffect(() => {
+    if (startedFromParent && !timerRunning && !isSolved) {
+      setTimerRunning(true);
+    }
+  }, [startedFromParent, timerRunning, isSolved]);
 
   // numbering/maps
   const { across, down, cellToAcross, cellToDown } = useMemo(
@@ -184,7 +195,7 @@ export default function Grid({ puzzle }) {
 
   // timer tick + periodic save
   useEffect(() => {
-    if (!timerRunning || !started) return;
+    if (!timerRunning || !startedEffective) return;
     const id = setInterval(() => {
       if (finishedRef.current) return;
       setElapsedSec((t) => {
@@ -197,7 +208,7 @@ export default function Grid({ puzzle }) {
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [timerRunning, started, date, entries]);
+  }, [timerRunning, startedEffective, date, entries]);
 
   // movement helpers
   const isInBounds = (r, c) => r >= 0 && r < SIZE && c >= 0 && c < SIZE;
@@ -262,7 +273,7 @@ export default function Grid({ puzzle }) {
     return new Set(currentClue.cells.map(([rr, cc]) => `${rr}-${cc}`));
   }, [currentClue]);
 
-  // clue navigation
+  // clue navigation helpers...
   const jumpToClueByIndex = (index) => {
     if (!linearClues.length) return;
     const i = ((index % linearClues.length) + linearClues.length) % linearClues.length;
@@ -343,7 +354,7 @@ export default function Grid({ puzzle }) {
     if (changed) setLocked(next);
   }
 
-  // checks
+  // checks (square/word/puzzle) ...
   function checkSquare(r, c, { autoFadeMs = 1200 } = {}) {
     if (isBlock(r, c)) return;
     const correct = norm(puzzle.grid[r][c]);
@@ -417,7 +428,7 @@ export default function Grid({ puzzle }) {
     setIsSolved(solved);
   }
 
-  // reveal / clear
+  // reveal / clear helpers ...
   const revealCells = (cells) => {
     const nextEntries = clone(entries);
     const nextFeedback = clone(feedback);
@@ -724,90 +735,6 @@ export default function Grid({ puzzle }) {
   // ---------- Render ----------
   return (
     <main className="page-wrap" style={{ padding: 12 }}>
-      {/* Pre-game overlay */}
-      {!started && !isSolved && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Start puzzle"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 2000,
-            background: "rgba(0,0,0,0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 14,
-              padding: 20,
-              minWidth: 320,
-              maxWidth: 480,
-              boxShadow: "0 10px 30px rgba(0,0,0,.25)",
-            }}
-          >
-            <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 6 }}>
-              {puzzle.title || "Mini Crossword"}
-            </div>
-            <div style={{ color: "#6b7280", marginBottom: 12 }}>
-              {formatLongDate(date)}
-            </div>
-
-            {!user ? (
-              <a
-                href="/auth"
-                style={{
-                  display: "inline-block",
-                  marginBottom: 12,
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 8,
-                  textDecoration: "none",
-                }}
-              >
-                Sign in / Create account
-              </a>
-            ) : (
-              <div style={{ marginBottom: 12, color: "#374151" }}>
-                Welcome back, <strong>{user.email?.split("@")[0] || "player"}</strong>!
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => {
-                setStarted(true);
-                setTimerRunning(true);
-                setActiveCell(firstPlayable);
-              }}
-              style={{
-                width: "100%",
-                padding: "10px 14px",
-                borderRadius: 10,
-                border: "1px solid #2563eb",
-                background: "#3b82f6",
-                color: "#fff",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              {hasProgress ? "Resume" : "Play"}
-            </button>
-
-            {hasProgress && (
-              <div style={{ marginTop: 10, fontSize: 12, color: "#6b7280" }}>
-                You have saved progress. Time so far: <strong>{formatElapsed(elapsedSec)}</strong>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Toolbar (centered) */}
       <div className="top-center">
         <div
@@ -891,7 +818,7 @@ export default function Grid({ puzzle }) {
             onClick={handlePauseToggle}
             aria-pressed={!timerRunning}
             title="Pause/Resume (⌥/Alt + P)"
-            disabled={isSolved || !started}
+            disabled={isSolved || !startedEffective}
           >
             {timerRunning ? "Pause" : "Resume"}
           </button>
@@ -935,7 +862,7 @@ export default function Grid({ puzzle }) {
       <section className="play-flex">
         {/* Board */}
         <div className="board-wrap">
-          <div className="grid" role="grid" aria-label="crossword grid" aria-disabled={!started} style={{ width: "fit-content" }}>
+          <div className="grid" role="grid" aria-label="crossword grid" aria-disabled={!startedEffective} style={{ width: "fit-content" }}>
             {puzzle.grid.map((row, r) => (
               <div key={r} className="row" role="row">
                 {row.map((cell, c) => {
@@ -1069,53 +996,41 @@ export default function Grid({ puzzle }) {
 
       {/* Layout styles */}
 <style>{`
-  /* One place to control how wide the whole play area can be */
   :root{
-    --wrap: clamp(1000px, 92vw, 1700px); /* overall max width */
-    --rail: 420px;                       /* clues rail width */
-    --gap: 32px;                         /* space between board and clues */
-    --board-nudge: 500px;                 /* ⬅️ push the grid to the right (tweak as needed) */
+    --wrap: clamp(1000px, 92vw, 1700px);
+    --rail: 420px;
+    --gap: 32px;
+    --board-nudge: 500px;
   }
-
-  /* Use the full viewport width instead of a fixed max */
   .page-wrap{ width: var(--wrap); margin: 0 auto; }
   .top-center{ width: var(--wrap); margin: 0 auto; }
-
-  /* Center the board+clues pair and give the rail more room */
   .play-flex{
     display: grid;
-    grid-template-columns: 1fr var(--rail); /* board grows, clues fixed */
+    grid-template-columns: 1fr var(--rail);
     align-items: start;
     justify-content: center;
     column-gap: var(--gap);
     width: var(--wrap);
     margin: 0 auto;
   }
-
-  /* Board column — nudge to the right only */
   .board-wrap{
     display: flex;
     justify-content: center;
-    min-width: 0;               /* let the board shrink if needed */
-    margin-left: var(--board-nudge); /* ⬅️ slide grid right */
+    min-width: 0;
+    margin-left: var(--board-nudge);
   }
-
   .clues-wrap{
     max-width: 100%;
     position: sticky;
     top: 12px;
   }
-
-  /* On ultra-wide screens, let the rail breathe a bit more */
   @media (min-width: 1600px){
     :root{ --rail: 460px; }
   }
-
-  /* Mobile: stack */
   @media (max-width: 900px){
     .top-center, .page-wrap, .play-flex{ width: min(96vw, 1000px); }
     .play-flex{ display: block; }
-    .board-wrap{ margin-left: 0; } /* no nudge on small screens */
+    .board-wrap{ margin-left: 0; }
     .clues-wrap{ position: static; margin-top: 16px; }
   }
 `}</style>
@@ -1158,10 +1073,10 @@ function launchEmojiConfetti(count = 90) {
     span.className = "mc-emoji";
     span.textContent = emojis[Math.floor(Math.random() * emojis.length)];
 
-    const delayMs = Math.random() * 600;            // slower start
-    const durMs   = 2400 + Math.random() * 1600;    // 2.4–4.0s fall
+    const delayMs = Math.random() * 600;
+    const durMs   = 2400 + Math.random() * 1600;
     const leftVW  = Math.random() * 100;
-    const sizePx  = 18 + Math.random() * 18;        // 18–36px
+    const sizePx  = 18 + Math.random() * 18;
     const driftPx = (Math.random() - 0.5) * 120;
     const rotDeg  = (Math.random() - 0.5) * 120;
 

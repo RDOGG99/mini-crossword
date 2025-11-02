@@ -2,14 +2,43 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Mobile-friendly viewport & safe areas -->
-+   <meta
-+     name="viewport"
-+     content="width=device-width, initial-scale=1, viewport-fit=cover"
-+   />
-    <title>Mini Crossword</title>
+
+    <!-- Mobile & viewport -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+
+    <!-- Favicon & Meta -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="title" content="Daily Mini Crossword" />
+    <meta
+      name="description"
+      content="Solve a fresh 5×5 mini crossword every day — quick, fun, and free!"
+    />
+
+    <!-- Open Graph (for social sharing) -->
+    <meta property="og:title" content="Daily Mini Crossword" />
+    <meta
+      property="og:description"
+      content="A fresh 5×5 puzzle every morning — play instantly, no sign-in needed."
+    />
+    <meta property="og:image" content="/social-card.png" />
+    <meta property="og:url" content="https://www.daily-minicrossword.com" />
+    <meta property="og:type" content="website" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Daily Mini Crossword" />
+    <meta
+      name="twitter:description"
+      content="A fresh 5×5 crossword each morning."
+    />
+    <meta name="twitter:image" content="/social-card.png" />
+
+    <title>Daily Mini Crossword</title>
   </head>
+
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
