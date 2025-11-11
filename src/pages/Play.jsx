@@ -37,15 +37,16 @@ export default function Play() {
 
         // Fallback to local sample
         try {
-          const local = await import("../data/samplePuzzle.json");
+          const localMod = await import("../data/samplePuzzle.json");
+          const local = localMod?.default || localMod;
           if (!alive) return;
           setPuzzle({
             puzzle_date: ymd,
-            title: local.title || `Puzzle — ${formatYmdHuman(ymd)}`,
-            size: local.size,
-            grid: local.grid,
-            clues: local.clues,
-            author: local.author || "Local",
+            title: local?.title || `Puzzle — ${formatYmdHuman(ymd)}`,
+            size: local?.size,
+            grid: local?.grid,
+            clues: local?.clues,
+            author: local?.author || "Local",
           });
           setStatus("fallback");
           metrics.puzzleLoad(ymd, Math.round(performance.now() - t0));
@@ -76,6 +77,29 @@ export default function Play() {
       author: puzzle.author,
     };
   }, [puzzle, humanDate]);
+
+  // Update the tab title
+  useEffect(() => {
+    if (normalized?.title) {
+      document.title = `${normalized.title} | Mini Crossword`;
+    } else {
+      document.title = `Mini Crossword — ${humanDate}`;
+    }
+  }, [normalized?.title, humanDate]);
+
+  // Lock body scroll when gate (overlay) is open; allow ESC to close
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    if (gateOpen) document.body.style.overflow = "hidden";
+    const onKey = (e) => {
+      if (gateOpen && e.key === "Escape") setGateOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [gateOpen]);
 
   if (status === "loading") {
     return <main style={{ maxWidth: 720, margin: "0 auto", padding: "1rem" }}>Loading puzzle…</main>;
@@ -110,21 +134,24 @@ export default function Play() {
             {normalized?.title || `Puzzle — ${humanDate}`}
           </h1>
 
-        {status === "fallback" && (
-          <ErrorState
-            title="Live puzzle not available"
-            detail="Showing a local sample so you can still play."
-          />
-        )}
+          {status === "fallback" && (
+            <ErrorState
+              title="Live puzzle not available"
+              detail="Showing a local sample so you can still play."
+            />
+          )}
         </header>
 
         {/* Render grid regardless; overlay will blur it */}
         {normalized && <Grid puzzle={normalized} started={!gateOpen} />}
       </main>
 
-      {/* 🔒 Blur overlay that shows YOUR existing modal content */}
+      {/* 🔒 Blur overlay */}
       {normalized && gateOpen && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Start playing"
           style={{
             position: "fixed",
             inset: 0,
@@ -132,6 +159,10 @@ export default function Play() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+          }}
+          onPointerDown={(e) => {
+            // Click outside the card closes the overlay
+            if (e.target === e.currentTarget) setGateOpen(false);
           }}
         >
           {/* Blur + dim */}
@@ -145,12 +176,13 @@ export default function Play() {
             }}
           />
 
-          {/* === YOUR EXISTING MODAL CONTENT GOES HERE === */}
+          {/* Modal card */}
           <div
             style={{
               position: "relative",
               zIndex: 1,
               width: 360,
+              maxWidth: "92vw",
               background: "#fff",
               borderRadius: 16,
               padding: 20,
@@ -158,12 +190,13 @@ export default function Play() {
               boxShadow: "0 20px 50px rgba(0,0,0,.25)",
             }}
           >
-            {/* Example that matches your screenshot — replace as needed */}
-            <h3 style={{ margin: "0 0 4px 0", fontSize: 18, fontWeight: 700 }}>Animal Mini</h3>
+            <h3 style={{ margin: "0 0 4px 0", fontSize: 18, fontWeight: 700 }}>
+              {normalized?.title || "Mini Crossword"}
+            </h3>
             <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 12 }}>{humanDate}</div>
 
             <button
-              onClick={() => nav("/auth")} // or your sign-in flow; optional
+              onClick={() => nav("/auth")}
               style={{
                 padding: "8px 10px",
                 borderRadius: 8,
@@ -177,7 +210,7 @@ export default function Play() {
             </button>
 
             <button
-              onClick={() => setGateOpen(false)}   // ✅ closes overlay, keeps same page, removes blur
+              onClick={() => setGateOpen(false)}   // ✅ closes overlay, removes blur
               style={{
                 width: "100%",
                 padding: "10px 14px",
@@ -192,7 +225,6 @@ export default function Play() {
               Play
             </button>
           </div>
-          {/* === END YOUR MODAL CONTENT === */}
         </div>
       )}
     </div>

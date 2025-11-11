@@ -85,6 +85,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
   // timer
   const [elapsedSec, setElapsedSec] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
+  const isPaused = !timerRunning;
   const handlePauseToggle = () => setTimerRunning((v) => !v);
 
   // Auto-start timer when parent opens the game
@@ -216,41 +217,33 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
   const delta = direction === "across" ? [0, 1] : [1, 0];
 
   const step = (r, c, dr, dc) => {
-    let nr = r + dr,
-      nc = c + dc;
+    let nr = r + dr, nc = c + dc;
     while (isInBounds(nr, nc) && isBlock(nr, nc)) {
-      nr += dr;
-      nc += dc;
+      nr += dr; nc += dc;
     }
     return isInBounds(nr, nc) ? [nr, nc] : [r, c];
   };
 
   const stepBackwardEditable = (r, c, dr, dc) => {
-    let nr = r - dr,
-      nc = c - dc;
+    let nr = r - dr, nc = c - dc;
     while (isInBounds(nr, nc) && (isBlock(nr, nc) || locked[nr][nc])) {
-      nr -= dr;
-      nc -= dc;
+      nr -= dr; nc -= dc;
     }
     return isInBounds(nr, nc) ? [nr, nc] : [r, c];
   };
 
   const stepForwardSmart = (r, c, dr, dc) => {
-    let nr = r + dr,
-      nc = c + dc;
+    let nr = r + dr, nc = c + dc;
     while (isInBounds(nr, nc) && (isBlock(nr, nc) || locked[nr][nc] || entries[nr][nc])) {
-      nr += dr;
-      nc += dc;
+      nr += dr; nc += dc;
     }
     return isInBounds(nr, nc) ? [nr, nc] : [r, c];
   };
 
   const stepBackwardSmart = (r, c, dr, dc) => {
-    let nr = r - dr,
-      nc = c - dc;
+    let nr = r - dr, nc = c - dc;
     while (isInBounds(nr, nc) && (isBlock(nr, nc) || locked[nr][nc] || entries[nr][nc])) {
-      nr -= dr;
-      nc -= dc;
+      nr -= dr; nc -= dc;
     }
     return isInBounds(nr, nc) ? [nr, nc] : [r, c];
   };
@@ -292,8 +285,34 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     return linearClues.findIndex((cl) => cl.start[0] === r && cl.start[1] === c);
   };
 
+  // ---- Dropdown menus: refs + close behavior
+  const checkRef = useRef(null);
+  const clearRef = useRef(null);
+  const revealRef = useRef(null);
+  const allMenuRefs = [checkRef, clearRef, revealRef];
+
+  const closeAllMenus = () => {
+    allMenuRefs.forEach((ref) => {
+      if (ref.current && ref.current.hasAttribute("open")) {
+        ref.current.removeAttribute("open");
+      }
+    });
+  };
+
+  useEffect(() => {
+    function onDocPointerDown(e) {
+      // Close if click happens outside any <details> menu
+      const inside = allMenuRefs.some((ref) => ref.current && ref.current.contains(e.target));
+      if (!inside) closeAllMenus();
+    }
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // events
   const handleClick = (r, c) => {
+    closeAllMenus();
     if (activeCell[0] === r && activeCell[1] === c) {
       setDirection((d) => (d === "across" ? "down" : "across"));
     } else {
@@ -321,15 +340,36 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     });
   };
 
-  const handleChange = (r, c, raw) => {
-    if (locked[r][c]) return;
-    const ch = norm(raw).slice(-1).replace(/[^A-Z]/g, "");
+  // ---- Place a char then advance (used by both keyboard + mobile)
+  const placeCharAndAdvance = (r, c, rawCh) => {
+    if (isPaused || locked[r][c]) return; // pause blocks input
+    const ch = norm(rawCh).slice(-1).replace(/[^A-Z]/g, "");
+    if (!ch) return;
+
+    // Start timer if this is the first user action
+    if (!startedEffective && !isSolved) {
+      setStarted(true);
+      setTimerRunning(true);
+    }
+
+    const [dr, dc] = direction === "across" ? [0, 1] : [1, 0];
+
     setEntries((prev) => {
-      const next = clone(prev);
-      next[r][c] = ch || "";
-      return next;
+      const copy = clone(prev);
+      copy[r][c] = ch;
+      return copy;
     });
     clearCellFeedbackAt(r, c);
+    requestAnimationFrame(() => softMarkCell(r, c));
+
+    const [nr, nc] = stepForwardSmart(r, c, dr, dc);
+    setActiveCell([nr, nc]);
+  };
+
+  // Mobile-friendly onChange path from <Cell />
+  const handleChange = (r, c, raw) => {
+    // Use unified helper so phones auto-advance
+    placeCharAndAdvance(r, c, raw);
   };
 
   // lock words when solved
@@ -375,6 +415,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
       }, autoFadeMs);
     }
     lockSolvedWords();
+    closeAllMenus();
   }
 
   function checkWord({ treatEmptyAsIncorrect = false } = {}) {
@@ -403,6 +444,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
       row.every((cell, cc) => cell === "#" || norm(entries[rr][cc]) === norm(cell))
     );
     setIsSolved(solved);
+    closeAllMenus();
   }
 
   function checkPuzzle({ treatEmptyAsIncorrect = false } = {}) {
@@ -426,6 +468,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
       row.every((f, c) => puzzle.grid[r][c] === "#" || f === "correct")
     );
     setIsSolved(solved);
+    closeAllMenus();
   }
 
   // reveal / clear helpers ...
@@ -448,6 +491,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
       row.every((cell, cc) => cell === "#" || norm(nextEntries[rr][cc]) === norm(cell))
     );
     setIsSolved(solved);
+    closeAllMenus();
   };
 
   const revealSquare = (r, c, { advance = true } = {}) => {
@@ -478,6 +522,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     setEntries(nextEntries);
     setFeedback(nextFeedback);
     setIsSolved(false);
+    closeAllMenus();
   };
 
   const clearSquare = (r, c, opts) => clearCells([[r, c]], opts);
@@ -533,7 +578,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
       try {
         await saveProgress(date, { entries, seconds: elapsedSec });
         const didReveal = revealed.some((row) => row.some(Boolean));
-        const errors = everIncorrect.current.size;
+        const errors = didReveal ? null : everIncorrect.current.size;
         await recordCompletionAPI(date, {
           seconds: elapsedSec,
           errors: didReveal ? null : errors,
@@ -566,6 +611,9 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
   // keyboard
   useEffect(() => {
     const onKeyDown = (e) => {
+      // Close menus on any key press that isn't modifier-only
+      if (!e.altKey && !e.ctrlKey && !e.metaKey) closeAllMenus();
+
       const [r, c] = activeCell;
       const [dr, dc] = direction === "across" ? [0, 1] : [1, 0];
 
@@ -578,6 +626,15 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
 
       if (isBlock(r, c)) {
         if (e.key === "Tab") e.preventDefault();
+        return;
+      }
+
+      // If paused, block letter/backspace/navigation that edits
+      const editingKey =
+        /^[a-z]$/i.test(e.key) ||
+        e.key === "Backspace";
+      if (isPaused && editingKey) {
+        e.preventDefault();
         return;
       }
 
@@ -707,24 +764,32 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
           setActiveCell([nr, nc]);
           return;
         }
-        const ch = e.key.toUpperCase();
-        setEntries((prev) => {
-          const copy = clone(prev);
-          copy[r][c] = ch;
-          return copy;
-        });
-        clearCellFeedbackAt(r, c);
-        requestAnimationFrame(() => softMarkCell(r, c));
-        const [nr, nc] = stepForwardSmart(r, c, dr, dc);
-        setActiveCell([nr, nc]);
+        // Ensure timer starts on first input if not already started
+        if (!startedEffective && !isSolved) {
+          setStarted(true);
+          setTimerRunning(true);
+        }
+        placeCharAndAdvance(r, c, e.key);
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeCell, direction, SIZE, linearClues, locked, entries, navSkipsFilled]);
+  }, [
+    activeCell,
+    direction,
+    SIZE,
+    linearClues,
+    locked,
+    entries,
+    navSkipsFilled,
+    isPaused,
+    startedEffective,
+    isSolved,
+  ]);
 
   const handleSelectClue = (dir, num) => {
+    closeAllMenus();
     const list = dir === "across" ? acrossWithText : downWithText;
     const found = list.find((cl) => cl.num === num);
     if (!found) return;
@@ -748,7 +813,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
             justifyContent: "center",
           }}
         >
-          <details className="menu">
+          <details ref={checkRef} className="menu">
             <summary className="menu-trigger">Check ▾</summary>
             <div className="menu-list" role="menu" onMouseDown={(e) => e.stopPropagation()}>
               <button type="button" className="menu-item" onClick={() => checkSquare(activeCell[0], activeCell[1])}>
@@ -763,7 +828,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
             </div>
           </details>
 
-          <details className="menu">
+          <details ref={clearRef} className="menu">
             <summary className="menu-trigger">Clear ▾</summary>
             <div className="menu-list" role="menu" onMouseDown={(e) => e.stopPropagation()}>
               <button type="button" className="menu-item" onClick={() => clearSquare(activeCell[0], activeCell[1])}>
@@ -778,7 +843,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
             </div>
           </details>
 
-          <details className="menu">
+          <details ref={revealRef} className="menu">
             <summary className="menu-trigger">Reveal ▾</summary>
             <div className="menu-list" role="menu" onMouseDown={(e) => e.stopPropagation()}>
               <button type="button" className="menu-item" onClick={() => revealSquare(activeCell[0], activeCell[1])}>
@@ -793,7 +858,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
             </div>
           </details>
 
-          <button type="button" onClick={resetAll}>Reset All (⌥/Alt + R)</button>
+          <button type="button" onClick={() => { closeAllMenus(); resetAll(); }}>Reset All (⌥/Alt + R)</button>
         </div>
       </div>
 
@@ -815,7 +880,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
           <button
             type="button"
             className="btn secondary"
-            onClick={handlePauseToggle}
+            onClick={() => { closeAllMenus(); handlePauseToggle(); }}
             aria-pressed={!timerRunning}
             title="Pause/Resume (⌥/Alt + P)"
             disabled={isSolved || !startedEffective}
@@ -862,7 +927,14 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
       <section className="play-flex">
         {/* Board */}
         <div className="board-wrap">
-          <div className="grid" role="grid" aria-label="crossword grid" aria-disabled={!startedEffective} style={{ width: "fit-content" }}>
+<div
+  className="grid"
+  role="grid"
+  aria-label="crossword grid"
+  aria-disabled={!startedEffective}
+  style={{ width: "fit-content" }}
+>
+
             {puzzle.grid.map((row, r) => (
               <div key={r} className="row" role="row">
                 {row.map((cell, c) => {
@@ -883,8 +955,8 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
                       cornerNumber={cornerNumbers.get(`${r}-${c}`) || null}
                       isRevealed={revealed[r][c]}
                       locked={locked[r][c]}
-                      onClick={handleClick}
-                      onChange={(ch) => handleChange(r, c, ch)}
+                      onClick={(...args) => { closeAllMenus(); handleClick(...args); }}
+                      onChange={(ch) => handleChange(r, c, ch)}  // mobile: auto-advance
                       onContextMenu={(e) => {
                         e.preventDefault();
                         checkSquare(r, c);
@@ -923,6 +995,10 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
             alignItems: "center",
             justifyContent: "center",
             zIndex: 1000,
+          }}
+          onPointerDown={(e) => {
+            // Clicking the dim scrim closes the modal
+            if (e.target === e.currentTarget) setShowFinishModal(false);
           }}
         >
           <div
@@ -971,25 +1047,33 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
 
             <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12 }}>
               <button type="button" onClick={() => setShowFinishModal(false)}>Close</button>
-              <button type="button" onClick={resetAll}>New Puzzle</button>
+              {/* New Puzzle button removed */}
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                const text = buildShareText({
-                  elapsedSec,
-                  didReveal: revealed.some((row) => row.some(Boolean)),
-                  user,
-                  stats: finishStats,
-                  ymd: ymdVancouver(),
-                });
-                copyShareText(text);
-              }}
-              style={{ marginTop: 12, padding: "6px 10px", border: "1px solid #d1d5db", borderRadius: 6, background: "#f9fafb", cursor: "pointer" }}
-            >
-              Copy results
-            </button>
+<button
+  type="button"
+  onClick={async () => {
+    const payload = buildSharePayload({
+      title: puzzle?.title || "Mini Crossword",
+      ymd: date, // use actual puzzle date
+      elapsedSec,
+      didReveal: revealed.some((row) => row.some(Boolean)),
+      stats: finishStats,
+    });
+    await copyShare(payload); // tries rich HTML first, falls back to text
+  }}
+  style={{
+    marginTop: 12,
+    padding: "6px 10px",
+    border: "1px solid #d1d5db",
+    borderRadius: 6,
+    background: "#f9fafb",
+    cursor: "pointer",
+  }}
+>
+  Copy results
+</button>
+
           </div>
         </div>
       )}

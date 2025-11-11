@@ -2,9 +2,11 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+// Keep SyncBadge available in dev only
 import SyncBadge from "../components/SyncBadge";
 
-const SHOW_ARCHIVE = false; // ⬅️ set to true if you want the Archive link back later
+const SHOW_ARCHIVE = false; // flip to true if you want Archive later
+const IS_PROD = process.env.NODE_ENV === "production";
 
 export default function Header() {
   const { user, signOut } = useAuth();
@@ -50,10 +52,12 @@ export default function Header() {
             </Link>
           )}
 
-          {/* Status / sync indicator */}
-          <div className="flex items-center">
-            <SyncBadge />
-          </div>
+          {/* Status / sync indicator — hide in production */}
+          {!IS_PROD && (
+            <div className="flex items-center">
+              <SyncBadge />
+            </div>
+          )}
         </nav>
       </div>
     </header>

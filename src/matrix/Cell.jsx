@@ -1,3 +1,4 @@
+// src/matrix/Cell.jsx
 import React from "react";
 
 export default function Cell({
@@ -38,6 +39,23 @@ export default function Cell({
       }
     : undefined;
 
+  // Sanitize to a single A–Z character (uppercased). If empty, pass "" (clears cell).
+  const handleInputChange = (e) => {
+    const raw = e.target.value || "";
+    const lastChar = raw.slice(-1); // only consider the most recent character
+    if (!lastChar) {
+      onChange(""); // user deleted; Grid will ignore advancing
+      return;
+    }
+    const m = lastChar.match(/[A-Za-z]/);
+    if (m) {
+      onChange(m[0].toUpperCase());
+    } else {
+      // Non-letter typed; keep existing value by re-emitting current value
+      onChange(value || "");
+    }
+  };
+
   return (
     <div
       className={cls}
@@ -48,14 +66,17 @@ export default function Cell({
       {cornerNumber != null && <div className="corner-number">{cornerNumber}</div>}
       <input
         className="cell-input"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={value ?? ""}
+        onChange={handleInputChange}
         maxLength={1}
         autoComplete="off"
+        autoCorrect="off"
         spellCheck="false"
-        inputMode="latin"
+        inputMode="text"
+        autoCapitalize="characters"
         readOnly={locked}
         aria-readonly={locked}
+        aria-label={`Row ${row + 1}, Column ${col + 1}`}
       />
     </div>
   );

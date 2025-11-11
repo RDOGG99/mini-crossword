@@ -1,3 +1,4 @@
+// src/App.jsx
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
@@ -8,12 +9,14 @@ import Archive from "./pages/Archive";
 import AuthPage from "./pages/Auth";
 import Profile from "./pages/Profile";
 import ProtectedRoute from "./auth/ProtectedRoute";
-import Dev from "./pages/Dev";
 import AdminRoute from "./auth/AdminRoute";
-import Admin from "./pages/Admin.jsx";  
+import Admin from "./pages/Admin.jsx";
+import Dev from "./pages/Dev";
 import "./index.css";
 
 export default function App() {
+  const IS_PROD = process.env.NODE_ENV === "production";
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -31,8 +34,10 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/dev" element={<Dev />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+
+        {/* Hide /dev route in production */}
+        {!IS_PROD && <Route path="/dev" element={<Dev />} />}
+
         <Route
           path="/admin"
           element={
@@ -41,6 +46,8 @@ export default function App() {
             </AdminRoute>
           }
         />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
   );

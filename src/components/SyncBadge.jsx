@@ -2,17 +2,26 @@
 import { useEffect, useState } from "react";
 import { getPendingCount, onPendingChange, flushPending } from "../data/api";
 
-// dev helpers (optional, handy while iterating)
-window.flushMiniQueue = () => flushPending().catch(console.warn);
-window.clearMiniQueue = () => {
-  try {
-    localStorage.removeItem("mx:queue"); // storage key used by data/api
-    // fire a storage event for other tabs
-    window.dispatchEvent(new StorageEvent("storage", { key: "mx:queue" }));
-  } catch (e) { console.warn(e); }
-};
+const IS_PROD = process.env.NODE_ENV === "production";
+const HIDE_WHEN_ZERO = false; // flip to true if you want to hide the pill when synced
 
-const HIDE_WHEN_ZERO = false; // set true to hide the pill when synced
+// Dev helpers: only attach in development
+if (!IS_PROD && typeof window !== "undefined") {
+  // Safe-guard to avoid redefining in HMR loops
+  if (!window.flushMiniQueue) {
+    window.flushMiniQueue = () => flushPending().catch(console.warn);
+  }
+  if (!window.clearMiniQueue) {
+    window.clearMiniQueue = () => {
+      try {
+        localStorage.removeItem("mx:queue");
+        window.dispatchEvent(new StorageEvent("storage", { key: "mx:queue" }));
+      } catch (e) {
+        console.warn(e);
+      }
+    };
+  }
+}
 
 export default function SyncBadge() {
   const [pending, setPending] = useState(getPendingCount());
@@ -22,21 +31,24 @@ export default function SyncBadge() {
     const off = onPendingChange(setPending);
 
     // reflect changes from other tabs
-    const onStorage = (e) => { if (e.key === "mx:queue") setPending(getPendingCount()); };
+    const onStorage = (e) => {
+      if (e.key === "mx:queue") setPending(getPendingCount());
+    };
     window.addEventListener("storage", onStorage);
 
     // auto-flush when we come online or tab becomes active
     const tryFlush = () => flushPending().catch(() => {});
-    window.addEventListener("online", tryFlush);
-    document.addEventListener("visibilitychange", () => {
+    const onVisibilityChange = () => {
       if (document.visibilityState === "visible") tryFlush();
-    });
+    };
+    window.addEventListener("online", tryFlush);
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       off();
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("online", tryFlush);
-      document.removeEventListener("visibilitychange", tryFlush);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 
@@ -50,7 +62,7 @@ export default function SyncBadge() {
     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
       <button
         onClick={() => flushPending().catch(() => {})}
-        title={pending ? "Click to retry syncing pending changes" : "All caught up"}
+        title={pending ? "Retry syncing pending changes" : "All caught up"}
         style={{
           padding: "4px 8px",
           borderRadius: 999,
@@ -64,10 +76,13 @@ export default function SyncBadge() {
         {label}
       </button>
 
-      {/* Dev-only clear button; remove if you don't want it visible */}
-      {pending > 0 && (
+      {/* Dev-only clear button — never shown in production */}
+      {!IS_PROD && pending > 0 && (
         <button
-          onClick={() => { window.clearMiniQueue(); setPending(0); }}
+          onClick={() => {
+            window.clearMiniQueue?.();
+            setPending(0);
+          }}
           title="Clear pending queue (dev)"
           style={{
             padding: "3px 6px",

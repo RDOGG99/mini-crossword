@@ -30,28 +30,48 @@ function getCache(key, ttl = CACHE_TTL_MS) {
 
 /** Fetch puzzle by date (YYYY-MM-DD) */
 export async function fetchPuzzleByDate(dateStr) {
-  const cacheKey = `puzzle:${dateStr}`;
-  const cached = getCache(cacheKey);
-  if (cached) return cached;
+  try {
+    console.log("[PUZZLE] start", dateStr);
 
-  if (!supabase) return null;
+    const cacheKey = `puzzle:${dateStr}`;
+    const cached = getCache(cacheKey);
+    if (cached) {
+      console.log("[PUZZLE] SOURCE=cached", dateStr);
+      return cached;
+    }
 
-  const { data, error } = await supabase
-    .from("puzzles")
-    .select("*")
-    .eq("puzzle_date", dateStr)
-    .maybeSingle();
+    if (!supabase) {
+      console.warn("[PUZZLE] no supabase client (check env)");
+      return null;
+    }
 
-  if (error) {
+    const { data, error } = await supabase
+      .from("puzzles")
+      .select("*")
+      .eq("puzzle_date", dateStr)
+      .maybeSingle();
+
+    // Not found -> null (lets Play.jsx load local fallback)
+    if (error) {
+      // Supabase PostgREST codes: 404-ish/No rows — sometimes PGRST116/204 depending on version
+      if (error.code === "PGRST116" || error.code === "PGRST204") {
+        return null;
+      }
+      throw error;
+    }
+
+    if (data) {
+      setCache(cacheKey, data);
+      metrics?.puzzleLoad?.(dateStr, 0);
+      return data;
+    }
+
+    return null;
+  } catch (error) {
     console.error("fetchPuzzleByDate error:", error);
-    metrics.error("fetchPuzzleByDate", error);
+    metrics?.error?.("fetchPuzzleByDate", error);
     return null;
   }
-  if (data) {
-    setCache(cacheKey, data);
-    metrics.puzzleLoad(dateStr, 0);
-  }
-  return data;
 }
 
 /** List available puzzle dates */
@@ -70,7 +90,7 @@ export async function listAvailableDates(limit = 90) {
 
   if (error) {
     console.error("listAvailableDates error:", error);
-    metrics.error("listAvailableDates", error);
+    metrics?.error?.("listAvailableDates", error);
     return cached || [];
   }
 
@@ -105,7 +125,7 @@ export async function loadProgress(date) {
 
   if (error) {
     console.warn("loadProgress error:", error);
-    metrics.error("loadProgress", error);
+    metrics?.error?.("loadProgress", error);
     return getLocal(`progress:${date}`) || null;
   }
 
@@ -132,12 +152,12 @@ export async function saveProgress(date, payload /* { entries, seconds } */) {
       );
 
     if (error) throw error;
-    metrics.progressSave(date);
+    metrics?.progressSave?.(date);
     return { ok: true };
   } catch (error) {
     enqueue({ type: "progress", date, payload });
     console.warn("saveProgress error:", error);
-    metrics.error("saveProgress", error);
+    metrics?.error?.("saveProgress", error);
     return { ok: false, queued: true, error };
   }
 }
@@ -152,11 +172,11 @@ export async function recordCompletion(date, stats /* { seconds, errors } */) {
     }
 
     await _writeCompletion(user.id, date, stats);
-    metrics.completion(date, stats?.seconds, stats?.errors);
+    metrics?.completion?.(date, stats?.seconds, stats?.errors);
   } catch (e) {
     enqueue({ type: "completion", date, payload: stats });
     console.warn("recordCompletion queued due to error:", e);
-    metrics.error("recordCompletion", e);
+    metrics?.error?.("recordCompletion", e);
     return { ok: false, queued: true, error: e };
   }
 
@@ -212,8 +232,10 @@ function enqueue(op) {
 async function _writeProgress(userId, date, payload) {
   const { error } = await supabase
     .from("user_progress")
-    .upsert({ user_id: userId, date, entries: payload.entries, seconds: payload.seconds ?? 0 },
-      { onConflict: "user_id,date" });
+    .upsert(
+      { user_id: userId, date, entries: payload.entries, seconds: payload.seconds ?? 0 },
+      { onConflict: "user_id,date" }
+    );
   if (error) throw error;
 }
 
