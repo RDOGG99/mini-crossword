@@ -14,6 +14,8 @@ import {
 } from "../data/api";
 import { ymdVancouver } from "../utils/dates";
 import { metrics } from "../data/metrics";
+import { trackCompleted } from "../utils/analytics";
+
 
 // ---- small debounce
 function useDebounced(fn, ms) {
@@ -560,43 +562,64 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     if (solved && !isSolved) setIsSolved(true);
   }, [entries, puzzle.grid, isSolved]);
 
-  // when solved: save + modal + metrics + confetti trigger
-  useEffect(() => {
-    if (!isSolved) return;
-    setTimerRunning(false);
-    finishedRef.current = true;
-    setShowFinishModal(true);
+  // when solved: save + modal + metrics + GA4 event + confetti trigger
+useEffect(() => {
+  if (!isSolved) return;
 
-    setLocked((prev) => {
-      const next = clone(prev);
-      for (let r = 0; r < SIZE; r++)
-        for (let c = 0; c < SIZE; c++) if (puzzle.grid[r][c] !== "#") next[r][c] = true;
-      return next;
-    });
+  setTimerRunning(false);
+  finishedRef.current = true;
+  setShowFinishModal(true);
 
-    (async () => {
+  // lock all non-block cells
+  setLocked((prev) => {
+    const next = clone(prev);
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++)
+        if (puzzle.grid[r][c] !== "#") next[r][c] = true;
+    return next;
+  });
+
+  (async () => {
+    try {
+      // persist last state
+      await saveProgress(date, { entries, seconds: elapsedSec });
+
+      // derive completion flags
+      const didReveal = revealed.some((row) => row.some(Boolean));
+      const errors = didReveal ? null : everIncorrect.current.size;
+
+      // app-side recording
+      await recordCompletionAPI(date, {
+        seconds: elapsedSec,
+        errors, // null when revealed
+      });
+      metrics.completion(date, elapsedSec, didReveal ? null : errors);
+
+      // ✅ GA4 custom event for your funnel
       try {
-        await saveProgress(date, { entries, seconds: elapsedSec });
-        const didReveal = revealed.some((row) => row.some(Boolean));
-        const errors = didReveal ? null : everIncorrect.current.size;
-        await recordCompletionAPI(date, {
-          seconds: elapsedSec,
-          errors: didReveal ? null : errors,
+        trackCompleted({
+          ymd: date,
+          elapsed_sec: elapsedSec,
+          clean: !didReveal, // true if no reveals used
         });
-        metrics.completion(date, elapsedSec, didReveal ? null : errors);
-
-        try {
-          const stats = await getUserStats?.(user?.id);
-          if (stats) setFinishStats(stats);
-        } catch {
-          /* ignore */
-        }
-      } catch (e) {
-        console.warn("Completion save error", e);
-        metrics.error("grid.recordCompletion", e);
+      } catch {
+        /* ignore analytics errors */
       }
-    })();
-  }, [isSolved, SIZE, puzzle.grid, date, entries, elapsedSec, revealed, user]);
+
+      // refresh streaks / stats for modal
+      try {
+        const stats = await getUserStats?.(user?.id);
+        if (stats) setFinishStats(stats);
+      } catch {
+        /* ignore */
+      }
+    } catch (e) {
+      console.warn("Completion save error", e);
+      metrics.error("grid.recordCompletion", e);
+    }
+  })();
+}, [isSolved, SIZE, puzzle.grid, date, entries, elapsedSec, revealed, user]);
+
 
   // confetti
   const didConfetti = useRef(false);
