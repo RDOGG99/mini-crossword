@@ -303,7 +303,6 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
 
   useEffect(() => {
     function onDocPointerDown(e) {
-      // Close if click happens outside any <details> menu
       const inside = allMenuRefs.some((ref) => ref.current && ref.current.contains(e.target));
       if (!inside) closeAllMenus();
     }
@@ -342,13 +341,11 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     });
   };
 
-  // ---- Place a char then advance (used by both keyboard + mobile)
   const placeCharAndAdvance = (r, c, rawCh) => {
-    if (isPaused || locked[r][c]) return; // pause blocks input
+    if (isPaused || locked[r][c]) return;
     const ch = norm(rawCh).slice(-1).replace(/[^A-Z]/g, "");
     if (!ch) return;
 
-    // Start timer if this is the first user action
     if (!startedEffective && !isSolved) {
       setStarted(true);
       setTimerRunning(true);
@@ -368,13 +365,10 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     setActiveCell([nr, nc]);
   };
 
-  // Mobile-friendly onChange path from <Cell />
   const handleChange = (r, c, raw) => {
-    // Use unified helper so phones auto-advance
     placeCharAndAdvance(r, c, raw);
   };
 
-  // lock words when solved
   function lockSolvedWords() {
     const next = clone(locked);
     let changed = false;
@@ -396,7 +390,6 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     if (changed) setLocked(next);
   }
 
-  // checks (square/word/puzzle) ...
   function checkSquare(r, c, { autoFadeMs = 1200 } = {}) {
     if (isBlock(r, c)) return;
     const correct = norm(puzzle.grid[r][c]);
@@ -473,7 +466,6 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     closeAllMenus();
   }
 
-  // reveal / clear helpers ...
   const revealCells = (cells) => {
     const nextEntries = clone(entries);
     const nextFeedback = clone(feedback);
@@ -536,7 +528,6 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     clearCells(cells, opts);
   };
 
-  // full reset
   function resetAll() {
     setEntries(emptyEntries);
     setFeedback(emptyFeedback);
@@ -554,7 +545,6 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     finishedRef.current = false;
   }
 
-  // auto-finish
   useEffect(() => {
     const solved = puzzle.grid.every((row, r) =>
       row.every((cell, c) => cell === "#" || norm(entries[r][c]) === norm(cell))
@@ -562,66 +552,53 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     if (solved && !isSolved) setIsSolved(true);
   }, [entries, puzzle.grid, isSolved]);
 
-  // when solved: save + modal + metrics + GA4 event + confetti trigger
-useEffect(() => {
-  if (!isSolved) return;
+  useEffect(() => {
+    if (!isSolved) return;
 
-  setTimerRunning(false);
-  finishedRef.current = true;
-  setShowFinishModal(true);
+    setTimerRunning(false);
+    finishedRef.current = true;
+    setShowFinishModal(true);
 
-  // lock all non-block cells
-  setLocked((prev) => {
-    const next = clone(prev);
-    for (let r = 0; r < SIZE; r++)
-      for (let c = 0; c < SIZE; c++)
-        if (puzzle.grid[r][c] !== "#") next[r][c] = true;
-    return next;
-  });
+    setLocked((prev) => {
+      const next = clone(prev);
+      for (let r = 0; r < SIZE; r++)
+        for (let c = 0; c < SIZE; c++)
+          if (puzzle.grid[r][c] !== "#") next[r][c] = true;
+      return next;
+    });
 
-  (async () => {
-    try {
-      // persist last state
-      await saveProgress(date, { entries, seconds: elapsedSec });
-
-      // derive completion flags
-      const didReveal = revealed.some((row) => row.some(Boolean));
-      const errors = didReveal ? null : everIncorrect.current.size;
-
-      // app-side recording
-      await recordCompletionAPI(date, {
-        seconds: elapsedSec,
-        errors, // null when revealed
-      });
-      metrics.completion(date, elapsedSec, didReveal ? null : errors);
-
-      // ✅ GA4 custom event for your funnel
+    (async () => {
       try {
-        trackCompleted({
-          ymd: date,
-          elapsed_sec: elapsedSec,
-          clean: !didReveal, // true if no reveals used
+        await saveProgress(date, { entries, seconds: elapsedSec });
+
+        const didReveal = revealed.some((row) => row.some(Boolean));
+        const errors = didReveal ? null : everIncorrect.current.size;
+
+        await recordCompletionAPI(date, {
+          seconds: elapsedSec,
+          errors,
         });
-      } catch {
-        /* ignore analytics errors */
+        metrics.completion(date, elapsedSec, didReveal ? null : errors);
+
+        try {
+          trackCompleted({
+            ymd: date,
+            elapsed_sec: elapsedSec,
+            clean: !didReveal,
+          });
+        } catch {}
+
+        try {
+          const stats = await getUserStats?.(user?.id);
+          if (stats) setFinishStats(stats);
+        } catch {}
+      } catch (e) {
+        console.warn("Completion save error", e);
+        metrics.error("grid.recordCompletion", e);
       }
+    })();
+  }, [isSolved, SIZE, puzzle.grid, date, entries, elapsedSec, revealed, user]);
 
-      // refresh streaks / stats for modal
-      try {
-        const stats = await getUserStats?.(user?.id);
-        if (stats) setFinishStats(stats);
-      } catch {
-        /* ignore */
-      }
-    } catch (e) {
-      console.warn("Completion save error", e);
-      metrics.error("grid.recordCompletion", e);
-    }
-  })();
-}, [isSolved, SIZE, puzzle.grid, date, entries, elapsedSec, revealed, user]);
-
-
-  // confetti
   const didConfetti = useRef(false);
   useEffect(() => {
     if (isSolved && !didConfetti.current) {
@@ -631,16 +608,13 @@ useEffect(() => {
     if (!isSolved) didConfetti.current = false;
   }, [isSolved]);
 
-  // keyboard
   useEffect(() => {
     const onKeyDown = (e) => {
-      // Close menus on any key press that isn't modifier-only
       if (!e.altKey && !e.ctrlKey && !e.metaKey) closeAllMenus();
 
       const [r, c] = activeCell;
       const [dr, dc] = direction === "across" ? [0, 1] : [1, 0];
 
-      // pause/resume
       if (e.altKey && (e.key === "p" || e.key === "P")) {
         e.preventDefault();
         setTimerRunning((v) => !v);
@@ -652,7 +626,6 @@ useEffect(() => {
         return;
       }
 
-      // If paused, block letter/backspace/navigation that edits
       const editingKey =
         /^[a-z]$/i.test(e.key) ||
         e.key === "Backspace";
@@ -661,7 +634,6 @@ useEffect(() => {
         return;
       }
 
-      // combos
       const cmdOrCtrl = e.metaKey || e.ctrlKey;
       if (cmdOrCtrl && e.shiftKey && e.key === "Enter") {
         e.preventDefault();
@@ -679,7 +651,6 @@ useEffect(() => {
         return;
       }
 
-      // reveal
       if (e.altKey && !e.shiftKey && e.key === "Enter") {
         e.preventDefault();
         revealSquare(r, c);
@@ -691,7 +662,6 @@ useEffect(() => {
         return;
       }
 
-      // clear
       if (e.altKey && !e.shiftKey && e.key === "Backspace") {
         e.preventDefault();
         clearSquare(r, c);
@@ -719,7 +689,6 @@ useEffect(() => {
         return;
       }
 
-      // tab between clues
       if (e.key === "Tab") {
         e.preventDefault();
         const cur = getCurrentLinearIndex();
@@ -728,14 +697,12 @@ useEffect(() => {
         return;
       }
 
-      // toggle direction
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         setDirection((d) => (d === "across" ? "down" : "across"));
         return;
       }
 
-      // arrows
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         setActiveCell(navSkipsFilled ? stepBackwardSmart(r, c, 0, 1) : step(r, c, 0, -1));
@@ -757,7 +724,6 @@ useEffect(() => {
         return;
       }
 
-      // backspace
       if (e.key === "Backspace") {
         e.preventDefault();
         if (locked[r][c]) return;
@@ -779,7 +745,6 @@ useEffect(() => {
         return;
       }
 
-      // letters
       if (/^[a-z]$/i.test(e.key)) {
         e.preventDefault();
         if (locked[r][c]) {
@@ -787,7 +752,6 @@ useEffect(() => {
           setActiveCell([nr, nc]);
           return;
         }
-        // Ensure timer starts on first input if not already started
         if (!startedEffective && !isSolved) {
           setStarted(true);
           setTimerRunning(true);
@@ -946,18 +910,17 @@ useEffect(() => {
         </div>
       )}
 
-      {/* Centered two-column layout */}
+      {/* ✅ RESPONSIVE LAYOUT (replaces grid+nudge) */}
       <section className="play-flex">
         {/* Board */}
         <div className="board-wrap">
-<div
-  className="grid"
-  role="grid"
-  aria-label="crossword grid"
-  aria-disabled={!startedEffective}
-  style={{ width: "fit-content" }}
->
-
+          <div
+            className="grid"
+            role="grid"
+            aria-label="crossword grid"
+            aria-disabled={!startedEffective}
+            style={{ width: "fit-content" }}
+          >
             {puzzle.grid.map((row, r) => (
               <div key={r} className="row" role="row">
                 {row.map((cell, c) => {
@@ -979,7 +942,7 @@ useEffect(() => {
                       isRevealed={revealed[r][c]}
                       locked={locked[r][c]}
                       onClick={(...args) => { closeAllMenus(); handleClick(...args); }}
-                      onChange={(ch) => handleChange(r, c, ch)}  // mobile: auto-advance
+                      onChange={(ch) => handleChange(r, c, ch)}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         checkSquare(r, c);
@@ -1020,7 +983,6 @@ useEffect(() => {
             zIndex: 1000,
           }}
           onPointerDown={(e) => {
-            // Clicking the dim scrim closes the modal
             if (e.target === e.currentTarget) setShowFinishModal(false);
           }}
         >
@@ -1070,77 +1032,92 @@ useEffect(() => {
 
             <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12 }}>
               <button type="button" onClick={() => setShowFinishModal(false)}>Close</button>
-              {/* New Puzzle button removed */}
             </div>
 
-<button
-  type="button"
-  onClick={async () => {
-    const payload = buildSharePayload({
-      title: puzzle?.title || "Mini Crossword",
-      ymd: date, // use actual puzzle date
-      elapsedSec,
-      didReveal: revealed.some((row) => row.some(Boolean)),
-      stats: finishStats,
-    });
-    await copyShare(payload); // tries rich HTML first, falls back to text
-  }}
-  style={{
-    marginTop: 12,
-    padding: "6px 10px",
-    border: "1px solid #d1d5db",
-    borderRadius: 6,
-    background: "#f9fafb",
-    cursor: "pointer",
-  }}
->
-  Copy results
-</button>
-
+            <button
+              type="button"
+              onClick={async () => {
+                const payload = buildSharePayload({
+                  title: puzzle?.title || "Mini Crossword",
+                  ymd: date,
+                  elapsedSec,
+                  didReveal: revealed.some((row) => row.some(Boolean)),
+                  stats: finishStats,
+                });
+                await copyShare(payload);
+              }}
+              style={{
+                marginTop: 12,
+                padding: "6px 10px",
+                border: "1px solid #d1d5db",
+                borderRadius: 6,
+                background: "#f9fafb",
+                cursor: "pointer",
+              }}
+            >
+              Copy results
+            </button>
           </div>
         </div>
       )}
 
-      {/* Layout styles */}
+      {/* ✅ Layout styles (fixed) */}
 <style>{`
   :root{
-    --wrap: clamp(1000px, 92vw, 1700px);
-    --rail: 420px;
-    --gap: 32px;
-    --board-nudge: 500px;
+    --wrap: clamp(720px, 92vw, 1200px);
+    --gap: 40px;
+    --rail: 320px;   /* clue column target width */
   }
+
   .page-wrap{ width: var(--wrap); margin: 0 auto; }
   .top-center{ width: var(--wrap); margin: 0 auto; }
+
+  /* ✅ Center-board layout:
+     Left column mirrors clue rail but can shrink to 0.
+     This keeps board centered under top bars until space runs out. */
   .play-flex{
     display: grid;
-    grid-template-columns: 1fr var(--rail);
+    grid-template-columns:
+      minmax(0, var(--rail))  /* collapsible left spacer */
+      auto                    /* board */
+      var(--rail);            /* clues */
+    column-gap: var(--gap);
     align-items: start;
     justify-content: center;
-    column-gap: var(--gap);
     width: var(--wrap);
     margin: 0 auto;
   }
+
   .board-wrap{
+    grid-column: 2;
     display: flex;
     justify-content: center;
-    min-width: 0;
-    margin-left: var(--board-nudge);
+    min-width: 330px;  /* protect board size */
+    margin-left: 0;    /* no nudges */
   }
+
   .clues-wrap{
-    max-width: 100%;
+    grid-column: 3;
+    min-width: 260px;
+    max-width: 360px;
     position: sticky;
     top: 12px;
   }
-  @media (min-width: 1600px){
-    :root{ --rail: 460px; }
-  }
+
+  /* ✅ Mobile / narrow: stack */
   @media (max-width: 900px){
     .top-center, .page-wrap, .play-flex{ width: min(96vw, 1000px); }
     .play-flex{ display: block; }
-    .board-wrap{ margin-left: 0; }
-    .clues-wrap{ position: static; margin-top: 16px; }
+    .board-wrap{ min-width: 0; }
+    .clues-wrap{
+      position: static;
+      width: 100%;
+      max-width: 520px;
+      margin-top: 16px;
+    }
   }
 `}</style>
+
     </main>
   );
 }

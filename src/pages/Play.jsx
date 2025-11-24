@@ -15,8 +15,8 @@ export default function Play() {
   const ymd = params.ymd || today;
 
   const [puzzle, setPuzzle] = useState(null);
-  const [status, setStatus] = useState("loading"); // loading | ready | error | fallback
-  const [gateOpen, setGateOpen] = useState(true);  // 🔒 overlay open -> blur visible
+  const [status, setStatus] = useState("loading"); 
+  const [gateOpen, setGateOpen] = useState(true);
 
   useEffect(() => {
     let alive = true;
@@ -35,7 +35,7 @@ export default function Play() {
           return;
         }
 
-        // Fallback to local sample
+        // Fallback sample
         try {
           const localMod = await import("../data/samplePuzzle.json");
           const local = localMod?.default || localMod;
@@ -53,13 +53,11 @@ export default function Play() {
         } catch (e) {
           console.error("Fallback load failed:", e);
           setStatus("error");
-          metrics.error("play.fallbackImport", e);
         }
       } catch (error) {
         if (!alive) return;
         console.error(error);
         setStatus("error");
-        metrics.error("play.fetchPuzzleByDate", error);
       }
     })();
 
@@ -78,7 +76,7 @@ export default function Play() {
     };
   }, [puzzle, humanDate]);
 
-  // Update the tab title
+  // Dynamic page title
   useEffect(() => {
     if (normalized?.title) {
       document.title = `${normalized.title} | Mini Crossword`;
@@ -87,14 +85,16 @@ export default function Play() {
     }
   }, [normalized?.title, humanDate]);
 
-  // Lock body scroll when gate (overlay) is open; allow ESC to close
+  // Lock body scroll when overlay is open
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;
     if (gateOpen) document.body.style.overflow = "hidden";
+
     const onKey = (e) => {
       if (gateOpen && e.key === "Escape") setGateOpen(false);
     };
     window.addEventListener("keydown", onKey);
+
     return () => {
       document.body.style.overflow = prevOverflow;
       window.removeEventListener("keydown", onKey);
@@ -102,7 +102,11 @@ export default function Play() {
   }, [gateOpen]);
 
   if (status === "loading") {
-    return <main style={{ maxWidth: 720, margin: "0 auto", padding: "1rem" }}>Loading puzzle…</main>;
+    return (
+      <main style={{ maxWidth: 720, margin: "0 auto", padding: "1rem" }}>
+        Loading puzzle…
+      </main>
+    );
   }
 
   if (status === "error") {
@@ -115,7 +119,16 @@ export default function Play() {
             detail={
               <>
                 We couldn’t fetch the puzzle for <b>{humanDate}</b>. Try another date in the{" "}
-                <button onClick={() => nav("/archive")} style={{ textDecoration: "underline", background: "none", border: "none", padding: 0, cursor: "pointer" }}>
+                <button
+                  onClick={() => nav("/archive")}
+                  style={{
+                    textDecoration: "underline",
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    cursor: "pointer",
+                  }}
+                >
                   Archive
                 </button>.
               </>
@@ -128,7 +141,7 @@ export default function Play() {
 
   return (
     <div style={{ position: "relative" }}>
-      <main style={{ maxWidth: 720, margin: "0 auto", padding: "1rem" }}>
+      <main style={{ maxWidth: 1200, margin: "0 auto", padding: "1rem" }}>
         <header style={{ marginBottom: "0.75rem" }}>
           <h1 style={{ margin: 0 }}>
             {normalized?.title || `Puzzle — ${humanDate}`}
@@ -142,11 +155,24 @@ export default function Play() {
           )}
         </header>
 
-        {/* Render grid regardless; overlay will blur it */}
-        {normalized && <Grid puzzle={normalized} started={!gateOpen} />}
+        {/* ⭐ NEW: responsive layout wrapper */}
+        <div
+          className="xcw-layout"
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: "40px",
+            flexWrap: "wrap",
+            marginTop: "20px",
+          }}
+        >
+          <div className="xcw-grid-area" style={{ minWidth: 330 }}>
+            {normalized && <Grid puzzle={normalized} started={!gateOpen} />}
+          </div>
+        </div>
       </main>
 
-      {/* 🔒 Blur overlay */}
+      {/* Overlay */}
       {normalized && gateOpen && (
         <div
           role="dialog"
@@ -161,11 +187,9 @@ export default function Play() {
             justifyContent: "center",
           }}
           onPointerDown={(e) => {
-            // Click outside the card closes the overlay
             if (e.target === e.currentTarget) setGateOpen(false);
           }}
         >
-          {/* Blur + dim */}
           <div
             style={{
               position: "absolute",
@@ -193,7 +217,9 @@ export default function Play() {
             <h3 style={{ margin: "0 0 4px 0", fontSize: 18, fontWeight: 700 }}>
               {normalized?.title || "Mini Crossword"}
             </h3>
-            <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 12 }}>{humanDate}</div>
+            <div style={{ color: "#6b7280", fontSize: 13, marginBottom: 12 }}>
+              {humanDate}
+            </div>
 
             <button
               onClick={() => nav("/auth")}
@@ -210,7 +236,7 @@ export default function Play() {
             </button>
 
             <button
-              onClick={() => setGateOpen(false)}   // ✅ closes overlay, removes blur
+              onClick={() => setGateOpen(false)}
               style={{
                 width: "100%",
                 padding: "10px 14px",
