@@ -31,15 +31,6 @@ const Cell = memo(function Cell({
     feedback === "incorrect" && "cell-incorrect",
   ].filter(Boolean).join(" ");
 
-  // Filled yellow for active cell + amber edge
-  const activeStyle = isActive
-    ? {
-        background: "#fff3a3",
-        boxShadow: "inset 0 0 0 2px #f59e0b",
-        position: "relative",
-      }
-    : undefined;
-
   // Sanitize to a single A–Z character (uppercased). If empty, pass "" (clears cell).
   const handleInputChange = (e) => {
     const raw = e.target.value || "";
@@ -60,7 +51,6 @@ const Cell = memo(function Cell({
   return (
     <div
       className={cls}
-      style={activeStyle}
       onClick={() => onClick(row, col)}
       onContextMenu={onContextMenu}
     >

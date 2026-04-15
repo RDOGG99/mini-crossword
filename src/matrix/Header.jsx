@@ -1,16 +1,14 @@
 // src/matrix/Header.jsx
-import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-// Keep SyncBadge available in dev only
 import SyncBadge from "../components/SyncBadge";
 
-const SHOW_ARCHIVE = false; // flip to true if you want Archive later
 const IS_PROD = process.env.NODE_ENV === "production";
 
 export default function Header() {
   const { user, signOut } = useAuth();
   const nav = useNavigate();
+  const location = useLocation();
 
   const displayName =
     user?.user_metadata?.display_name ||
@@ -25,40 +23,60 @@ export default function Header() {
     }
   }
 
-  return (
-    <header className="border-b">
-      <div className="max-w-4xl mx-auto flex items-center gap-4 p-3">
-        <Link to="/" className="font-semibold">Mini Crossword</Link>
+  const isActive = (path) =>
+    location.pathname === path || location.pathname.startsWith(path + "/");
 
-        <nav className="ml-auto flex items-center gap-3">
-          <Link to="/play">Play</Link>
-          {SHOW_ARCHIVE && <Link to="/archive">Archive</Link>}
+  return (
+    <header className="site-header">
+      <div className="header-inner">
+        {/* Logo: "Daily" dark + "Mini" teal */}
+        <Link to="/" className="site-logo">
+          <span className="logo-daily">Daily</span>
+          <span className="logo-mini">Mini</span>
+        </Link>
+
+        {/* Nav tabs */}
+        <nav className="header-nav" aria-label="Main navigation">
+          <Link
+            to="/play"
+            className={`nav-tab${isActive("/play") ? " active" : ""}`}
+          >
+            Today
+          </Link>
+          <Link
+            to="/profile"
+            className={`nav-tab${isActive("/profile") ? " active" : ""}`}
+          >
+            Stats
+          </Link>
+          <a href="#how-to-play" className="nav-tab">
+            How to Play
+          </a>
+        </nav>
+
+        {/* Right: streak badge + auth */}
+        <div className="header-right">
+          <div className="streak-badge" title="Current streak">
+            🔥 <span>0</span>
+          </div>
 
           {user ? (
             <>
-              <Link to="/profile" className="font-medium">
+              <Link to="/profile" className="header-auth-link">
                 {displayName || "Profile"}
               </Link>
-              <button
-                onClick={handleSignOut}
-                className="border rounded px-2 py-1"
-              >
+              <button onClick={handleSignOut} className="header-sign-out">
                 Sign out
               </button>
             </>
           ) : (
-            <Link to="/auth" className="border rounded px-2 py-1">
+            <Link to="/auth" className="header-auth-link header-sign-in">
               Sign in
             </Link>
           )}
 
-          {/* Status / sync indicator — hide in production */}
-          {!IS_PROD && (
-            <div className="flex items-center">
-              <SyncBadge />
-            </div>
-          )}
-        </nav>
+          {!IS_PROD && <SyncBadge />}
+        </div>
       </div>
     </header>
   );

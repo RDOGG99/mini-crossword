@@ -1006,93 +1006,88 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
       {/* Finish modal */}
       {showFinishModal && (
         <div
+          className="modal-overlay"
           role="dialog"
           aria-modal="true"
           aria-label="Puzzle finished"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
           onPointerDown={(e) => {
             if (e.target === e.currentTarget) setShowFinishModal(false);
           }}
         >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 12,
-              padding: 20,
-              minWidth: 280,
-              boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
-              textAlign: "center",
-            }}
-          >
-            <h2 style={{ margin: 0, marginBottom: 8 }}>🎉 All Correct!</h2>
-            <p style={{ marginTop: 0, marginBottom: 8 }}>
-              Time: <strong>{formatElapsed(elapsedSec)}</strong>
-            </p>
-            <p style={{ margin: "8px 0", fontWeight: 500 }}>Share your results or challenge a friend 👇</p>
+          <div className="victory-card">
 
-            {revealed.some((row) => row.some(Boolean)) && (
-              <p style={{ margin: "4px 0", color: "#b45309" }}>⚠️ Assisted solve — PR not updated</p>
+            {/* Header labels */}
+            <p className="victory-label">Puzzle Complete</p>
+            <h2 className="victory-heading">Nice work!</h2>
+
+            {/* Time — big teal number */}
+            <div className="victory-time">{formatElapsed(elapsedSec)}</div>
+
+            {/* Assist warning (replaces generic subtext when revealed) */}
+            {revealed.some((row) => row.some(Boolean)) ? (
+              <p className="victory-assist-warning">⚠️ Assisted solve — streak not updated</p>
+            ) : (
+              <p className="victory-subtext">Great solve time!</p>
             )}
 
+            {/* PR / delta info */}
             {finishMeta && (
-              <>
+              <div className="victory-meta">
                 {finishMeta.isPR && (
-                  <p style={{ margin: "4px 0", color: "green", fontWeight: 600 }}>
+                  <p className="victory-pr">
                     🎉 New Personal Best!
                     {finishMeta.prImprovementSec != null && ` (−${formatElapsed(finishMeta.prImprovementSec)})`}
                   </p>
                 )}
                 {!finishMeta.isPR && finishMeta.deltaVsPRSec != null && (
-                  <p style={{ margin: "4px 0", fontWeight: 500 }}>
+                  <p>
                     {finishMeta.deltaVsPRSec > 0
                       ? `+${formatElapsed(finishMeta.deltaVsPRSec)} slower than PR`
                       : `Equal to PR`}
                   </p>
                 )}
-              </>
+              </div>
             )}
 
+            {/* Streak pill */}
             {finishStats && (
-              <p style={{ margin: "4px 0", fontSize: "0.95em", color: "#444" }}>
-                Streak: {finishStats.currentStreak} (Longest: {finishStats.longestStreak})
-              </p>
+              <div className="victory-streak-pill">
+                🔥 {finishStats.currentStreak}-day streak — keep it up!
+              </div>
             )}
 
-            <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12 }}>
-              <button type="button" onClick={() => setShowFinishModal(false)}>Close</button>
-            </div>
+            <hr className="victory-divider" />
 
-            <button
-              type="button"
-              onClick={async () => {
-                const payload = buildSharePayload({
-                  title: puzzle?.title || "Mini Crossword",
-                  ymd: date,
-                  elapsedSec,
-                  didReveal: revealed.some((row) => row.some(Boolean)),
-                  stats: finishStats,
-                });
-                await copyShare(payload);
-              }}
-              style={{
-                marginTop: 12,
-                padding: "6px 10px",
-                border: "1px solid #d1d5db",
-                borderRadius: 6,
-                background: "#f9fafb",
-                cursor: "pointer",
-              }}
-            >
-              Copy results
-            </button>
+            {/* In-modal ad */}
+            <p className="victory-ad-label">Advertisement</p>
+            <div className="victory-ad-box">GOOGLE AD 300 × 250</div>
+
+            {/* Action buttons */}
+            <div className="victory-actions">
+              <button
+                type="button"
+                className="btn-play-again"
+                onClick={() => setShowFinishModal(false)}
+              >
+                Play again
+              </button>
+              <button
+                type="button"
+                className="btn-share"
+                onClick={async () => {
+                  const payload = buildSharePayload({
+                    title: puzzle?.title || "Mini Crossword",
+                    ymd: date,
+                    elapsedSec,
+                    didReveal: revealed.some((row) => row.some(Boolean)),
+                    stats: finishStats,
+                  });
+                  await copyShare(payload);
+                }}
+              >
+                Share result
+              </button>
+            </div>
           </div>
         </div>
       )}

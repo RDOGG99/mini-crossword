@@ -28,15 +28,13 @@
 
 .clues-wrap {
   width: 100%;
-  /* Sticky on desktop so it scrolls with the page but never leaves view */
   position: sticky;
   top: 12px;
-  /* Cap height so it never overflows the viewport */
   max-height: calc(100vh - 80px);
   overflow-y: auto;
 }
 
-/* Across | Down side-by-side — keeps everything on one screen */
+/* Across | Down side-by-side */
 .clue-panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -49,11 +47,12 @@
    ============================ */
 
 h3.clue-heading {
+  font-family: 'DM Sans', system-ui, sans-serif;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #555;
+  letter-spacing: 0.08em;
+  color: var(--text-3, #96B8BF);
   margin: 0 0 6px 0;
 }
 
@@ -72,26 +71,36 @@ h3.clue-heading {
   padding: 4px 6px;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
+  color: var(--text, #0F1F22);
+  transition: background 0.12s;
 }
 
 .clue-item:hover {
-  background: #f3f4f6;
+  background: var(--accent-bg, #EEF8FB);
 }
 
 .clue-num {
   font-weight: 700;
-  color: #111;
+  color: var(--accent, #2A9EB5);
   text-align: right;
 }
 
 .clue-text {
-  color: #222;
+  color: var(--text, #0F1F22);
 }
 
 .clue-item.is-current {
-  background: #ffec99;
-  outline: 2px solid #ffd54f;
+  background: var(--accent, #2A9EB5);
+  color: #fff;
+}
+
+.clue-item.is-current .clue-num {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.clue-item.is-current .clue-text {
+  color: #fff;
 }
 
 /* On mobile: clue panel stacks below grid, stays 2-column */
@@ -108,6 +117,47 @@ h3.clue-heading {
   }
 
   .clue-item {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
+  }
+}
+
+/* ================================================
+   MOBILE — max-width: 480px
+   ================================================ */
+
+@media (max-width: 480px) {
+  /* Clues always below the grid on mobile — no sticky sidebar */
+  .clues-wrap {
+    margin-top: 12px;
+    width: 100%;
+  }
+
+  /* Keep Across | Down side by side, tighter spacing */
+  .clue-panel {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  h3.clue-heading {
+    font-size: 0.65rem;
+    letter-spacing: 0.07em;
+    margin-bottom: 4px;
+  }
+
+  .clue-item {
+    font-size: 0.76rem;
+    padding: 3px 4px;
+    gap: 4px;
+    border-radius: 5px;
+  }
+
+  /* Completed / locked clues: fade them out */
+  .clue-item.is-locked {
+    opacity: 0.4;
+  }
+
+  /* Active clue: full-width pill within its column */
+  .clue-item.is-current {
+    border-radius: 20px;
   }
 }

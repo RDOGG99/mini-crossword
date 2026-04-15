@@ -1,38 +1,61 @@
 /* ================================
-   Mini Crossword — Clean Styles
+   Mini Crossword — Design Tokens + Styles
    ================================ */
 
 :root {
-  /* Cells fill available width on small screens, capped at 88px on large */
+  /* Layout */
   --cell: min(88px, calc((100vw - 40px) / 5));
   --cell-font: calc(var(--cell) * 0.5);
   --corner-font: calc(var(--cell) * 0.2);
+
+  /* Colors */
+  --bg: #F0F2F3;
+  --surface: #FFFFFF;
+  --surface-2: #F7F9FA;
+  --border: #E4EBED;
+
+  --accent: #2A9EB5;
+  --accent-dk: #1A7A8E;
+  --accent-lt: #A8E0EE;
+  --accent-bg: #EEF8FB;
+
+  --text: #0F1F22;
+  --text-2: #4A7A84;
+  --text-3: #96B8BF;
+
+  --black-cell: #1A3035;
+  --word-hl: #C8EEFF;
+  --word-band: #E6F7FC;
+}
+
+/* App shell — page-level gray background */
+.min-h-screen {
+  min-height: 100vh;
+  background: var(--bg);
 }
 
 /* Base page layout */
-body {
-  margin: 0;
-  background: #fff;
-  color: #111;
-  font-family: Arial, sans-serif;
-}
-
 .app {
-  max-width: 960px;
+  max-width: 980px;
   margin: 0 auto;
   padding: 16px;
   text-align: center;
 }
 
 .title {
+  font-family: 'Sora', system-ui, sans-serif;
   font-size: 2.25rem;
   font-weight: 800;
   line-height: 1.1;
   margin: 12px 0 16px;
   text-align: center;
+  color: var(--text);
 }
 
-/* Toolbar */
+/* ================================
+   TOOLBAR
+   ================================ */
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -40,18 +63,39 @@ body {
   justify-content: center;
   align-items: center;
 }
+
 .toolbar button,
 .menu-trigger {
-  background: #f6f6f6;
-  border: 1px solid #cfcfcf;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 6px 12px;
   font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text);
   cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
 }
-.toolbar button:hover,
-.menu-trigger:hover { background: #eee; }
 
+.toolbar button:hover,
+.menu-trigger:hover {
+  background: var(--accent-bg);
+  border-color: var(--accent-lt);
+  color: var(--accent-dk);
+}
+
+.btn.secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+.btn.secondary:hover {
+  background: var(--surface-2);
+  border-color: var(--accent-lt);
+  color: var(--accent);
+}
+
+/* Dropdown menus */
 .menu { position: relative; display: inline-block; }
 .menu[open] .menu-list { display: block; }
 .menu-trigger::-webkit-details-marker { display: none; }
@@ -61,10 +105,10 @@ body {
   top: calc(100% + 6px);
   left: 0;
   min-width: 220px;
-  background: #fff;
-  border: 1px solid #cfcfcf;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.10);
   padding: 6px;
   z-index: 20;
 }
@@ -75,73 +119,104 @@ body {
   border: 0;
   padding: 8px 10px;
   border-radius: 6px;
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 0.875rem;
   cursor: pointer;
-  color: #111;
+  color: var(--text);
 }
-.menu-item:hover { background: #f6f6f6; }
+.menu-item:hover { background: var(--accent-bg); color: var(--accent-dk); }
 
-/* Grid */
+/* ================================
+   GRID
+   ================================ */
+
 .grid {
-  display: inline-block;
-  border: 3px solid #000;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--black-cell);
+  border: 2px solid var(--black-cell);
+  border-radius: 5px;
+  overflow: hidden;
   margin: 0 auto;
-  background: transparent;
 }
-.row { display: flex; }
+
+.row { display: flex; gap: 2px; }
+
 .cell {
   width: var(--cell);
   height: var(--cell);
-  background: #fff;
-  border: 1px solid #000;
+  background: var(--surface);
+  border: none;
   position: relative;
   display: grid;
   place-items: center;
-  transition: background-color .18s ease;
+  transition: background-color .15s ease;
 }
-.cell-block { background: #000; border: 1px solid #000; }
+
+.cell-block {
+  background: var(--black-cell);
+}
 
 .cell-input {
-  width: 100%; height: 100%;
-  border: none; outline: none;
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
   background: transparent;
   text-transform: uppercase;
   text-align: center;
+  font-family: 'Sora', system-ui, sans-serif;
   font-size: var(--cell-font);
-  font-weight: 800;
-  color: #111;
+  font-weight: 700;
+  color: var(--text);
 }
 
 /* Corner numbers */
 .corner-number {
   position: absolute;
-  top: 2px; left: 3px;
+  top: 2px;
+  left: 3px;
   font-size: var(--corner-font);
   font-weight: 700;
-  color: #333;
+  color: var(--text-2);
   user-select: none;
   pointer-events: none;
 }
 
-/* States */
+/* ================================
+   CELL STATES
+   ================================ */
+
 .cell-active {
-  background: #ffe082;
-  box-shadow: 0 0 0 2px #ffca28 inset;
+  background: var(--accent) !important;
   z-index: 1;
 }
-.cell-in-answer { background: #cfe9ff; }
-.cell-in-band  { background: #eaf4ff; }
+.cell-active .cell-input {
+  color: #fff;
+}
+.cell-active .corner-number {
+  color: rgba(255,255,255,0.70);
+}
 
-/* Revealed cells */
+.cell-in-answer { background: var(--word-hl); }
+.cell-in-band   { background: var(--word-band); }
+
 .cell-revealed {
   background: #fff8dc;
   border: 1px dashed #e0c200;
 }
 .cell-revealed .cell-input { text-decoration: underline dotted; }
 
-/* Check feedback — single approach (accessible red X) */
-.grid .cell.cell-correct   { background: transparent !important; }
-.grid .cell.cell-incorrect { background: transparent !important; }
+/* Check feedback — red X overlay */
+.grid .cell.cell-correct   { background: var(--surface) !important; }
+.grid .cell.cell-incorrect { background: var(--surface) !important; }
+
+/* Keep letter visible when a checked cell is the active cell */
+.grid .cell.cell-correct.cell-active .cell-input,
+.grid .cell.cell-incorrect.cell-active .cell-input {
+  color: var(--text);
+}
 .grid .cell { position: relative; }
 .grid .cell .cell-input { position: relative; z-index: 1; }
 .grid .cell.cell-incorrect::before,
@@ -160,19 +235,42 @@ body {
 .grid .cell.cell-incorrect::before { transform: translate(-50%, -50%) rotate(45deg); }
 .grid .cell.cell-incorrect::after  { transform: translate(-50%, -50%) rotate(-45deg); }
 
-/* Current clue bar */
+/* ================================
+   CURRENT CLUE BAR
+   ================================ */
+
 .current-clue-bar {
   margin: 8px auto 10px;
   max-width: 560px;
-  background: #e6f2ff;
-  border: 1px solid #c9e0ff;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-lt);
   border-radius: 6px;
-  padding: 6px 10px;
-  font-weight: 700;
+  padding: 6px 12px;
+  font-weight: 600;
+  color: var(--accent-dk);
+  font-size: 0.9rem;
 }
-.current-clue-bar .num { margin-right: 6px; }
+.current-clue-bar .num {
+  margin-right: 6px;
+  color: var(--accent);
+}
 
-/* Solved banner */
+/* ================================
+   TIMER
+   ================================ */
+
+.timer {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 1.9rem;
+  color: var(--text);
+  letter-spacing: 0.03em;
+}
+
+/* ================================
+   SOLVED BANNER
+   ================================ */
+
 .banner-solved {
   background: #e8f9ed;
   border: 1px solid #b6e7c3;
@@ -182,14 +280,14 @@ body {
   margin: 8px 0 12px;
 }
 
-/* Clue list — styles live in styles/crossword.css */
+/* ================================
+   LAYOUT — 3-column crossword
+   ================================ */
 
-/* Center the entire game block */
 .board { display: grid; place-items: center; width: 100%; }
 .board > * { width: max-content; }
 .board :is(.clues, .clue-list) { width: 100%; max-width: 720px; margin: 12px auto 0; }
 
-/* 3-column crossword layout */
 .game-shell { display: flex; justify-content: center; width: 100%; }
 .xcw {
   display: grid;
@@ -207,7 +305,495 @@ body {
 @media (max-width: 900px) {
   .xcw { grid-template-columns: 1fr; }
   .xcw-controls, .xcw-timer, .xcw-active, .xcw-board, .xcw-clues {
-    grid-column: 1; justify-self: center;
+    grid-column: 1;
+    justify-self: center;
   }
   .xcw-controls { position: static; flex-direction: row; flex-wrap: wrap; }
+}
+
+/* ================================
+   SITE HEADER
+   ================================ */
+
+.site-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  gap: 0;
+}
+
+/* Logo */
+.site-logo {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 1.35rem;
+  text-decoration: none;
+  line-height: 1;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.logo-daily { color: var(--text); }
+.logo-mini  { color: var(--accent); }
+
+/* Nav tabs */
+.header-nav {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  margin: 0 12px;
+}
+
+.nav-tab {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  text-decoration: none;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.nav-tab:hover { color: var(--accent); }
+.nav-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Right side: streak + auth */
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* Streak pill */
+.streak-badge {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 10px;
+  border: 1.5px solid var(--accent);
+  border-radius: 20px;
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent-dk);
+  background: var(--accent-bg);
+  white-space: nowrap;
+}
+
+.header-auth-link {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-2);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.header-auth-link:hover { color: var(--accent); }
+
+.header-sign-out {
+  font-size: 0.82rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.header-sign-out:hover {
+  border-color: var(--accent-lt);
+  color: var(--accent-dk);
+  background: var(--accent-bg);
+}
+
+.header-sign-in {
+  font-size: 0.82rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  text-decoration: none;
+  transition: all 0.15s;
+  display: inline-block;
+}
+.header-sign-in:hover {
+  border-color: var(--accent-lt);
+  color: var(--accent-dk);
+  background: var(--accent-bg);
+}
+
+/* Collapse nav on small screens */
+@media (max-width: 640px) {
+  .header-nav { display: none; }
+  .site-logo { font-size: 1.1rem; }
+  .streak-badge { display: none; }
+  .header-inner { padding: 0 12px; }
+}
+
+/* ================================
+   GAME CARD (white surface on gray page)
+   ================================ */
+
+.page-wrap {
+  background: var(--surface) !important;
+  border-radius: 12px;
+  padding: 20px !important;
+  box-shadow: 0 1px 8px rgba(0,0,0,0.08);
+  margin: 16px auto !important;
+}
+
+/* ================================
+   PLAY PAGE HEADER — hide puzzle title (design uses date in header)
+   ================================ */
+
+.play-page-header {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.play-page-header h1 {
+  display: none;
+}
+
+
+/* ================================
+   FOOTER / AD PLACEHOLDER
+   ================================ */
+
+.ad-footer {
+  margin: 32px auto 0;
+  padding: 16px 20px 24px;
+  max-width: 1100px;
+  text-align: center;
+  border-top: 1px solid var(--border);
+}
+
+.ad-label {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  margin-bottom: 8px;
+}
+
+.ad-placeholder {
+  width: 100%;
+  max-width: 728px;
+  height: 90px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+
+/* ================================
+   VICTORY MODAL
+   ================================ */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(107, 123, 128, 0.80);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.victory-card {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 28px 24px 24px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.22);
+  text-align: center;
+}
+
+/* "PUZZLE COMPLETE" */
+.victory-label {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+  margin: 0 0 6px;
+}
+
+/* "Nice work!" */
+.victory-heading {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0 0 10px;
+  line-height: 1.1;
+}
+
+/* Time — big teal number */
+.victory-time {
+  font-family: 'Sora', system-ui, sans-serif;
+  font-size: 3.25rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.victory-subtext {
+  font-size: 0.875rem;
+  color: var(--text-2);
+  margin: 0 0 12px;
+}
+
+.victory-assist-warning {
+  font-size: 0.82rem;
+  color: #b45309;
+  margin: 0 0 12px;
+}
+
+.victory-meta {
+  font-size: 0.875rem;
+  color: var(--text-2);
+  margin-bottom: 8px;
+}
+.victory-meta p { margin: 4px 0; }
+
+.victory-pr {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+/* Streak pill */
+.victory-streak-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 14px;
+  border: 1.5px solid var(--accent);
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent-dk);
+  background: var(--accent-bg);
+  margin: 8px 0 16px;
+}
+
+.victory-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0 0 16px;
+}
+
+/* In-modal ad */
+.victory-ad-label {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  margin: 0 0 8px;
+}
+
+.victory-ad-box {
+  width: 100%;
+  height: 160px;
+  background: var(--accent-bg);
+  border: 1.5px dashed var(--accent-lt);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+  margin-bottom: 20px;
+}
+
+/* Action buttons */
+.victory-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-play-again {
+  flex: 1;
+  padding: 10px 0;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-play-again:hover {
+  background: var(--surface-2);
+  border-color: var(--text-2);
+}
+
+.btn-share {
+  flex: 1;
+  padding: 10px 0;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-share:hover { background: var(--accent-dk); }
+
+/* ================================================
+   MOBILE — max-width: 480px
+   All desktop styles remain intact above.
+   Only additions / overrides below.
+   ================================================ */
+
+@media (max-width: 480px) {
+
+  /* --- Page card: full-bleed, no shadow/radius --- */
+  .page-wrap {
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 10px 10px 16px !important;
+    box-shadow: none !important;
+  }
+
+  /* --- Header: tighter height, same logo-left / streak-right --- */
+  .header-inner {
+    height: 48px;
+    padding: 0 12px;
+  }
+  .site-logo {
+    font-size: 1.05rem;
+  }
+
+  /* --- Toolbar: single row, compact buttons --- */
+  .toolbar {
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+    justify-content: center !important;
+  }
+  .menu-trigger {
+    padding: 5px 8px !important;
+    font-size: 0.76rem !important;
+  }
+
+  /* --- Timer row: timer left, pause/resume right --- */
+  .timer-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin: 6px 0 !important;
+    gap: 0 !important;
+  }
+  .timer {
+    font-size: 1.6rem !important;
+  }
+  .btn.secondary {
+    font-size: 0.78rem;
+    padding: 5px 10px;
+  }
+
+  /* --- Current clue bar: sticky just below the 48px header --- */
+  .current-clue-bar {
+    position: sticky !important;
+    top: 48px !important;
+    z-index: 50 !important;
+    background: var(--accent-bg) !important;
+    border-radius: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    margin: 0 0 8px !important;
+    max-width: none !important;
+    font-size: 0.85rem !important;
+  }
+
+  /* --- Footer ad: hide 728×90 leaderboard on mobile --- */
+  .ad-footer {
+    display: none !important;
+  }
+
+  /* --- Victory modal: compact card, fits phone width --- */
+  .modal-overlay {
+    padding: 12px;
+    align-items: flex-end; /* slide up from bottom on mobile */
+  }
+  .victory-card {
+    padding: 20px 16px 18px !important;
+    max-width: 100% !important;
+    border-radius: 16px 16px 12px 12px !important;
+  }
+  .victory-label {
+    font-size: 0.62rem !important;
+  }
+  .victory-heading {
+    font-size: 1.35rem !important;
+    margin-bottom: 6px !important;
+  }
+  .victory-time {
+    font-size: 2.6rem !important;
+    margin-bottom: 6px !important;
+  }
+  .victory-subtext,
+  .victory-assist-warning {
+    font-size: 0.8rem !important;
+    margin-bottom: 8px !important;
+  }
+  .victory-streak-pill {
+    font-size: 0.75rem !important;
+    padding: 4px 11px !important;
+    margin: 6px 0 12px !important;
+  }
+  .victory-ad-box {
+    height: 140px !important;
+    font-size: 0.73rem !important;
+    margin-bottom: 14px !important;
+  }
+  .victory-actions {
+    gap: 8px !important;
+  }
+  .btn-play-again,
+  .btn-share {
+    padding: 9px 0 !important;
+    font-size: 0.85rem !important;
+  }
 }

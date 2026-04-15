@@ -143,7 +143,7 @@ export default function Play() {
   return (
     <div style={{ position: "relative" }}>
       <main style={{ maxWidth: 1200, margin: "0 auto", padding: "1rem" }}>
-        <header style={{ marginBottom: "0.75rem" }}>
+        <header className="play-page-header" style={{ marginBottom: "0.75rem" }}>
           <h1 style={{ margin: 0 }}>
             {normalized?.title || `Puzzle — ${humanDate}`}
           </h1>
@@ -175,6 +175,12 @@ export default function Play() {
             )}
           </div>
         </div>
+
+        {/* Footer ad */}
+        <footer className="ad-footer">
+          <div className="ad-label">Advertisement</div>
+          <div className="ad-placeholder">728 × 90</div>
+        </footer>
       </main>
 
       {/* Overlay */}
