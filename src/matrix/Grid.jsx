@@ -1,11 +1,11 @@
 // src/matrix/Grid.jsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Cell from "./Cell";
 import ClueList from "./ClueList";
 import { computeNumbering } from "./numbering";
 import { useAuth } from "../auth/AuthContext";
 import { bumpPlayed, getUserStats } from "../data/store";
-import { buildShareText, copyShareText } from "../utils/share";
+import { buildSharePayload, copyShare } from "../utils/share";
 import {
   saveProgress,
   loadProgress,
@@ -17,9 +17,10 @@ import { metrics } from "../data/metrics";
 import { trackCompleted } from "../utils/analytics";
 
 
-// ---- small debounce
+// ---- small debounce with unmount cleanup
 function useDebounced(fn, ms) {
   const t = useRef();
+  useEffect(() => () => clearTimeout(t.current), []);
   return (...args) => {
     clearTimeout(t.current);
     t.current = setTimeout(() => fn(...args), ms);
@@ -35,15 +36,6 @@ const formatElapsed = (total) => {
   return `${m}m ${s}s`;
 };
 
-function formatLongDate(ymd) {
-  const [Y, M, D] = (ymd || "").split("-").map((n) => parseInt(n, 10));
-  const d = Y && M && D ? new Date(Y, M - 1, D) : new Date();
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(d);
-}
 
 // 👇 Accept a parent-controlled `started` (from Play.jsx). If omitted, fall back to internal state.
 export default function Grid({ puzzle, started: startedFromParent = undefined }) {
@@ -57,6 +49,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
   const hasBumpedPlayed = useRef(false);
   const finishedRef = useRef(false);
   const everIncorrect = useRef(new Set());
+  const hasAutoStarted = useRef(false);
 
   // helpers
   const makeMatrix = (fill) => [...Array(SIZE)].map(() => Array(SIZE).fill(fill));
@@ -82,7 +75,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
 
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [finishStats, setFinishStats] = useState(null);
-  const [finishMeta, setFinishMeta] = useState(null);
+  const [finishMeta] = useState(null);
 
   // timer
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -90,12 +83,16 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
   const isPaused = !timerRunning;
   const handlePauseToggle = () => setTimerRunning((v) => !v);
 
-  // Auto-start timer when parent opens the game
+  // Auto-start timer once when parent opens the game.
+  // Intentionally excludes timerRunning from deps — re-running on every pause/resume
+  // would immediately undo the pause by restarting the timer.
   useEffect(() => {
-    if (startedFromParent && !timerRunning && !isSolved) {
+    if (startedFromParent && !hasAutoStarted.current && !isSolved) {
+      hasAutoStarted.current = true;
       setTimerRunning(true);
     }
-  }, [startedFromParent, timerRunning, isSolved]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startedFromParent, isSolved]);
 
   // numbering/maps
   const { across, down, cellToAcross, cellToDown } = useMemo(
@@ -103,13 +100,20 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     [puzzle.grid]
   );
 
+  // Supports both array format ["clue1","clue2"] and keyed object {"1":"clue1","3":"clue2"}
+  const resolveClue = (clueData, index, num) => {
+    if (!clueData) return null;
+    if (Array.isArray(clueData)) return clueData[index] || null;
+    return clueData[String(num)] || null;
+  };
+
   const acrossWithText = useMemo(
-    () => across.map((cl) => ({ ...cl, text: puzzle?.clues?.across?.[String(cl.num)] || null })),
+    () => across.map((cl, i) => ({ ...cl, text: resolveClue(puzzle?.clues?.across, i, cl.num) })),
     [across, puzzle?.clues?.across]
   );
 
   const downWithText = useMemo(
-    () => down.map((cl) => ({ ...cl, text: puzzle?.clues?.down?.[String(cl.num)] || null })),
+    () => down.map((cl, i) => ({ ...cl, text: resolveClue(puzzle?.clues?.down, i, cl.num) })),
     [down, puzzle?.clues?.down]
   );
 
@@ -141,7 +145,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     () => entries.some((row) => row.some((ch) => (ch ?? "").trim() !== "")),
     [entries]
   );
-  const hasProgress = hasAnyInput || elapsedSec > 0;
+
 
   // bump 'played' once
   useEffect(() => {
@@ -168,6 +172,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     hasBumpedPlayed.current = false;
     everIncorrect.current = new Set();
     finishedRef.current = false;
+    hasAutoStarted.current = false;
   }, [emptyEntries, emptyFeedback, emptyRevealed, emptyLocked, firstPlayable, puzzle?.grid]);
 
   // load saved progress
@@ -287,6 +292,24 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     return linearClues.findIndex((cl) => cl.start[0] === r && cl.start[1] === c);
   };
 
+  // ---- Cell input ref map (for focus-on-clue-click)
+  const cellRefs = useRef({});
+  const focusCell = (r, c) => cellRefs.current[`${r}-${c}`]?.focus({ preventScroll: true });
+
+  // Move real browser focus whenever the active cell changes.
+  // On desktop this is harmless (keydown is caught on window regardless of focus).
+  // On mobile this is essential — the native keyboard sends input to whichever
+  // input element actually has focus, so we must move it to match activeCell.
+  useEffect(() => {
+    if (!startedEffective || isSolved) return;
+    const [r, c] = activeCell;
+    if (!isBlock(r, c)) {
+      requestAnimationFrame(() => focusCell(r, c));
+    }
+  // isBlock is stable (derived from puzzle.grid which doesn't change mid-game)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCell, startedEffective, isSolved]);
+
   // ---- Dropdown menus: refs + close behavior
   const checkRef = useRef(null);
   const clearRef = useRef(null);
@@ -303,8 +326,13 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
 
   useEffect(() => {
     function onDocPointerDown(e) {
-      const inside = allMenuRefs.some((ref) => ref.current && ref.current.contains(e.target));
-      if (!inside) closeAllMenus();
+      // Close any open menu whose trigger was NOT the click target.
+      // This handles both "click outside" AND "click a different menu while one is open".
+      allMenuRefs.forEach((ref) => {
+        if (ref.current?.hasAttribute("open") && !ref.current.contains(e.target)) {
+          ref.current.removeAttribute("open");
+        }
+      });
     }
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
@@ -537,12 +565,17 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     setActiveCell(firstPlayable);
     setDirection("across");
     setElapsedSec(0);
-    setTimerRunning(false);
+    // Restart the timer immediately if the player has already passed the start gate.
+    // If they haven't (gate is still showing), leave the timer off — the auto-start
+    // effect will fire once they click "Play".
+    setTimerRunning(startedEffective);
     setShowFinishModal(false);
     setStarted(false);
     hasBumpedPlayed.current = false;
     everIncorrect.current = new Set();
     finishedRef.current = false;
+    // Reset so the auto-start effect can re-fire if the gate hasn't been passed yet.
+    hasAutoStarted.current = startedEffective;
   }
 
   useEffect(() => {
@@ -782,6 +815,8 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     if (!found) return;
     setDirection(dir);
     setActiveCell(found.start);
+    // Move keyboard focus into the grid so the user can type immediately
+    requestAnimationFrame(() => focusCell(found.start[0], found.start[1]));
   };
 
   // ---------- Render ----------
@@ -941,6 +976,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
                       cornerNumber={cornerNumbers.get(`${r}-${c}`) || null}
                       isRevealed={revealed[r][c]}
                       locked={locked[r][c]}
+                      inputRef={(el) => { cellRefs.current[`${r}-${c}`] = el; }}
                       onClick={(...args) => { closeAllMenus(); handleClick(...args); }}
                       onChange={(ch) => handleChange(r, c, ch)}
                       onContextMenu={(e) => {
@@ -1061,30 +1097,25 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
         </div>
       )}
 
-      {/* ✅ Layout styles (fixed) */}
+      {/* Layout styles */}
 <style>{`
   :root{
-    --wrap: clamp(720px, 92vw, 1200px);
-    --gap: 40px;
-    --rail: 320px;   /* clue column target width */
+    --gap: 32px;
+    --rail: 300px;
   }
 
-  .page-wrap{ width: var(--wrap); margin: 0 auto; }
-  .top-center{ width: var(--wrap); margin: 0 auto; }
+  .page-wrap{ width: 100%; max-width: 1100px; margin: 0 auto; box-sizing: border-box; }
+  .top-center{ width: 100%; max-width: 1100px; margin: 0 auto; }
 
-  /* ✅ Center-board layout:
-     Left column mirrors clue rail but can shrink to 0.
-     This keeps board centered under top bars until space runs out. */
+  /* Desktop: board centered, clues to the right */
   .play-flex{
     display: grid;
-    grid-template-columns:
-      minmax(0, var(--rail))  /* collapsible left spacer */
-      auto                    /* board */
-      var(--rail);            /* clues */
+    grid-template-columns: minmax(0, var(--rail)) auto var(--rail);
     column-gap: var(--gap);
     align-items: start;
     justify-content: center;
-    width: var(--wrap);
+    width: 100%;
+    max-width: 1100px;
     margin: 0 auto;
   }
 
@@ -1092,29 +1123,42 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
     grid-column: 2;
     display: flex;
     justify-content: center;
-    min-width: 330px;  /* protect board size */
-    margin-left: 0;    /* no nudges */
   }
 
   .clues-wrap{
     grid-column: 3;
-    min-width: 260px;
+    min-width: 220px;
     max-width: 360px;
-    position: sticky;
-    top: 12px;
   }
 
-  /* ✅ Mobile / narrow: stack */
-  @media (max-width: 900px){
-    .top-center, .page-wrap, .play-flex{ width: min(96vw, 1000px); }
-    .play-flex{ display: block; }
-    .board-wrap{ min-width: 0; }
-    .clues-wrap{
-      position: static;
-      width: 100%;
-      max-width: 520px;
-      margin-top: 16px;
+  /* Mobile: stack everything, full-width */
+  @media (max-width: 720px){
+    .page-wrap, .top-center{ padding: 0 8px; }
+    .play-flex{
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
     }
+    .board-wrap{ width: 100%; justify-content: center; }
+    .clues-wrap{
+      width: 100%;
+      max-width: 100%;
+    }
+    /* Tighter toolbar on mobile */
+    .toolbar{ gap: 4px; margin-bottom: 4px !important; }
+    .toolbar button, .menu-trigger{ padding: 5px 8px; font-size: 13px; }
+    /* Sticky clue bar above keyboard */
+    .current-clue-bar{
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #e6f2ff;
+      margin: 4px 0 !important;
+      font-size: 0.9rem;
+    }
+    /* Timer row compact */
+    .timer-row{ margin: 2px 0 !important; gap: 6px !important; }
   }
 `}</style>
 

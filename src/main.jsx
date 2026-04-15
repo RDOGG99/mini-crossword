@@ -15,6 +15,7 @@ import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 import "./index.css";
 import "./App.css";
+import "./styles/crossword.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

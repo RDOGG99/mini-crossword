@@ -1,7 +1,7 @@
 // src/matrix/Cell.jsx
-import React from "react";
+import { memo } from "react";
 
-export default function Cell({
+const Cell = memo(function Cell({
   row,
   col,
   isBlock,
@@ -13,6 +13,7 @@ export default function Cell({
   isRevealed,
   cornerNumber,
   locked,
+  inputRef,
   onClick,
   onChange,
   onContextMenu,
@@ -65,6 +66,7 @@ export default function Cell({
     >
       {cornerNumber != null && <div className="corner-number">{cornerNumber}</div>}
       <input
+        ref={inputRef}
         className="cell-input"
         value={value ?? ""}
         onChange={handleInputChange}
@@ -80,4 +82,6 @@ export default function Cell({
       />
     </div>
   );
-}
+});
+
+export default Cell;

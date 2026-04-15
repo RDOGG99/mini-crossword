@@ -1,13 +1,14 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import Loader from "../components/Loader";
 
 export default function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
   // 1) Wait for auth to finish initializing
-  if (loading) return null; // or a spinner
+  if (loading) return <Loader label="Checking sign-in…" />;
 
   // 2) If no user, send them to /auth and remember where they came from
   if (!user) {

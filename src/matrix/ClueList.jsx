@@ -24,13 +24,14 @@ export default function ClueList({
   return (
     <div className="clue-panel">
       <div>
-        <div className="clue-heading">Across</div>
-        <ul>{across.map((cl) => renderClue(cl, "across"))}</ul>
+        <h3 className="clue-heading">Across</h3>
+        <ul className="clue-list">{across.map((cl) => renderClue(cl, "across"))}</ul>
       </div>
       <div>
-        <div className="clue-heading">Down</div>
-        <ul>{down.map((cl) => renderClue(cl, "down"))}</ul>
+        <h3 className="clue-heading">Down</h3>
+        <ul className="clue-list">{down.map((cl) => renderClue(cl, "down"))}</ul>
       </div>
     </div>
   );
 }
+

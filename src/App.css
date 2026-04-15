@@ -3,9 +3,10 @@
    ================================ */
 
 :root {
-  --cell: 88px;
-  --cell-font: 44px;
-  --corner-font: 18px;
+  /* Cells fill available width on small screens, capped at 88px on large */
+  --cell: min(88px, calc((100vw - 40px) / 5));
+  --cell-font: calc(var(--cell) * 0.5);
+  --corner-font: calc(var(--cell) * 0.2);
 }
 
 /* Base page layout */
@@ -181,21 +182,7 @@ body {
   margin: 8px 0 12px;
 }
 
-/* Clue list */
-.clue-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
-.clue-heading { font-size: 20px; font-weight: 800; margin: 10px 0 8px; color: #111; }
-.clue-item {
-  display: grid;
-  grid-template-columns: 24px 1fr;
-  gap: 10px;
-  align-items: baseline;
-  padding: 6px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.clue-num { color: #111; font-weight: 800; }
-.clue-text { color: #222; }
-.clue-item.is-current { background: #ffec99; outline: 2px solid #ffd54f; }
+/* Clue list — styles live in styles/crossword.css */
 
 /* Center the entire game block */
 .board { display: grid; place-items: center; width: 100%; }

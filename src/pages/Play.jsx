@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Grid from "../matrix/Grid";
+import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import ErrorState from "../components/ErrorState.jsx";
 import { fetchPuzzleByDate } from "../data/api";
 import { ymdVancouver, formatYmdHuman } from "../utils/dates";
@@ -167,7 +168,11 @@ export default function Play() {
           }}
         >
           <div className="xcw-grid-area" style={{ minWidth: 330 }}>
-            {normalized && <Grid puzzle={normalized} started={!gateOpen} />}
+            {normalized && (
+              <ErrorBoundary>
+                <Grid puzzle={normalized} started={!gateOpen} />
+              </ErrorBoundary>
+            )}
           </div>
         </div>
       </main>

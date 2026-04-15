@@ -64,6 +64,17 @@ export function AuthProvider({ children }) {
       signOut: async () => {
         await supabase.auth.signOut();
       },
+      updateName: async (displayName) => {
+        if (!supabase) throw new Error("Supabase not configured");
+        const { error } = await supabase.auth.updateUser({
+          data: { display_name: displayName },
+        });
+        if (error) throw error;
+        const uid = session?.user?.id;
+        if (uid) {
+          await supabase.from("users").update({ display_name: displayName }).eq("id", uid);
+        }
+      },
     }),
     [session, loading]
   );
