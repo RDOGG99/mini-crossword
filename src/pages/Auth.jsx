@@ -1,75 +1,63 @@
 // src/pages/Auth.jsx
-import React, { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext";
+// Sign-in is now modal-based throughout the app.
+// This page exists as a fallback for direct /auth navigation (e.g. AdminRoute).
+import { SignInButton } from "@clerk/clerk-react";
+import { useNavigate } from "react-router-dom";
 
 export default function AuthPage() {
-  const { signIn, signUp } = useAuth();
-  const [mode, setMode] = useState("signin"); // "signin" | "signup"
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [err, setErr] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const navigate = useNavigate();
-  const location = useLocation();
-  // ProtectedRoute sends state={{ from: location }}
-  const from = location.state?.from?.pathname || "/";
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setErr("");
-    setLoading(true);
-    try {
-      if (mode === "signin") {
-        await signIn(email, password);
-      } else {
-        await signUp(email, password);
-      }
-      navigate(from, { replace: true });
-    } catch (error) {
-      setErr(error.message || "Authentication error");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const nav = useNavigate();
 
   return (
-    <div style={{ maxWidth: 420, margin: "48px auto", padding: 16 }}>
-      <h1 style={{ marginBottom: 12 }}>
-        {mode === "signin" ? "Sign In" : "Create Account"}
-      </h1>
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 12 }}>
-        <input
-          type="email"
-          placeholder="email@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <input
-          type="password"
-          placeholder="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        {err && <div style={{ color: "crimson" }}>{err}</div>}
-        <button disabled={loading} type="submit">
-          {loading ? "Please wait…" : mode === "signin" ? "Sign In" : "Sign Up"}
+    <div style={{ textAlign: "center", padding: "64px 20px" }}>
+      <div style={{ fontSize: "2.5rem", marginBottom: 16 }}>🔐</div>
+      <h2
+        style={{
+          fontFamily: "'Sora', system-ui, sans-serif",
+          fontWeight: 800,
+          fontSize: "1.4rem",
+          color: "var(--text)",
+          margin: "0 0 8px",
+        }}
+      >
+        Sign in to continue
+      </h2>
+      <p style={{ color: "var(--text-2)", marginBottom: 24 }}>
+        You need an account to access this page.
+      </p>
+      <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+        <SignInButton mode="modal" fallbackRedirectUrl="/play">
+          <button
+            style={{
+              background: "var(--accent)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "10px 28px",
+              fontSize: "0.95rem",
+              fontFamily: "'DM Sans', system-ui, sans-serif",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Sign in
+          </button>
+        </SignInButton>
+        <button
+          onClick={() => nav("/play")}
+          style={{
+            background: "var(--surface)",
+            color: "var(--text-2)",
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+            padding: "10px 28px",
+            fontSize: "0.95rem",
+            fontFamily: "'DM Sans', system-ui, sans-serif",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Back to puzzle
         </button>
-      </form>
-
-      <div style={{ marginTop: 12 }}>
-        {mode === "signin" ? (
-          <button onClick={() => setMode("signup")}>
-            Need an account? Sign up
-          </button>
-        ) : (
-          <button onClick={() => setMode("signin")}>
-            Already have an account? Sign in
-          </button>
-        )}
       </div>
     </div>
   );

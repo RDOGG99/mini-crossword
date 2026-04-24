@@ -2,6 +2,14 @@
 import { supabase } from "../lib/supabaseClient";
 import { metrics } from "./metrics";
 
+// -------- Clerk user ID (set by AuthContext on every auth state change) --------
+// api functions use this instead of supabase.auth.getUser() so they work
+// with Clerk identity rather than Supabase Auth.
+let _userId = null;
+export function setApiUser(id) {
+  _userId = id ?? null;
+}
+
 // -------- Local cache helpers (localStorage) --------
 const CACHE_TTL_MS = 1000 * 60 * 10; // 10 minutes
 
@@ -113,13 +121,13 @@ const setLocal = (k, v) => {
 
 // ---------- Load user progress ----------
 export async function loadProgress(date) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return getLocal(`progress:${date}`) || null;
+  const userId = _userId;
+  if (!userId) return getLocal(`progress:${date}`) || null;
 
   const { data, error } = await supabase
     .from("user_progress")
     .select("entries, seconds, updated_at")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("date", date)
     .maybeSingle();
 
@@ -139,15 +147,15 @@ export async function loadProgress(date) {
 
 // ---------- Save user progress ----------
 export async function saveProgress(date, payload /* { entries, seconds } */) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const userId = _userId;
   setLocal(`progress:${date}`, { ...payload, updated_at: new Date().toISOString() });
-  if (!user) return { ok: false, offline: true };
+  if (!userId) return { ok: false, offline: true };
 
   try {
     const { error } = await supabase
       .from("user_progress")
       .upsert(
-        { user_id: user.id, date, entries: payload.entries, seconds: payload.seconds ?? 0 },
+        { user_id: userId, date, entries: payload.entries, seconds: payload.seconds ?? 0 },
         { onConflict: "user_id,date" }
       );
 
@@ -165,13 +173,13 @@ export async function saveProgress(date, payload /* { entries, seconds } */) {
 // ---------- Record puzzle completion ----------
 export async function recordCompletion(date, stats /* { seconds, errors } */) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const userId = _userId;
+    if (!userId) {
       enqueue({ type: "completion", date, payload: stats });
       return { ok: false, offline: true, queued: true };
     }
 
-    await _writeCompletion(user.id, date, stats);
+    await _writeCompletion(userId, date, stats);
     metrics?.completion?.(date, stats?.seconds, stats?.errors);
   } catch (e) {
     enqueue({ type: "completion", date, payload: stats });
@@ -193,12 +201,12 @@ export async function recordCompletion(date, stats /* { seconds, errors } */) {
 
 // ---------- List all completions ----------
 export async function listCompletions({ limit = 200 } = {}) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
+  const userId = _userId;
+  if (!userId) return [];
   const { data, error } = await supabase
     .from("completions")
     .select("date, seconds, errors, finished_at")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .order("date", { ascending: false })
     .limit(limit);
   if (error) throw error;
@@ -247,17 +255,17 @@ async function _writeCompletion(userId, date, stats) {
 }
 
 export async function flushPending() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return getPendingCount();
+  const userId = _userId;
+  if (!userId) return getPendingCount();
 
   let queue = qGet();
   const keep = [];
   for (const item of queue) {
     try {
       if (item.type === "progress") {
-        await _writeProgress(user.id, item.date, item.payload);
+        await _writeProgress(userId, item.date, item.payload);
       } else if (item.type === "completion") {
-        await _writeCompletion(user.id, item.date, item.payload);
+        await _writeCompletion(userId, item.date, item.payload);
       }
     } catch {
       keep.push(item);
@@ -277,8 +285,7 @@ if (typeof window !== "undefined") {
 // ===================================================
 
 export async function adminListPuzzles({ limit = 200 } = {}) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not signed in");
+  if (!_userId) throw new Error("Not signed in");
   const { data, error } = await supabase
     .from("puzzles")
     .select("id, puzzle_date, title, size")
@@ -289,8 +296,7 @@ export async function adminListPuzzles({ limit = 200 } = {}) {
 }
 
 export async function adminUpsertPuzzle({ puzzle_date, puzzle }) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not signed in");
+  if (!_userId) throw new Error("Not signed in");
   if (!puzzle_date || !/^\d{4}-\d{2}-\d{2}$/.test(puzzle_date)) throw new Error("Invalid date");
   if (!puzzle?.grid || !puzzle?.clues) throw new Error("Invalid puzzle JSON");
 
@@ -311,8 +317,7 @@ export async function adminUpsertPuzzle({ puzzle_date, puzzle }) {
 }
 
 export async function adminDeletePuzzle(puzzle_date) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not signed in");
+  if (!_userId) throw new Error("Not signed in");
   const { error } = await supabase
     .from("puzzles")
     .delete()
@@ -322,8 +327,7 @@ export async function adminDeletePuzzle(puzzle_date) {
 }
 
 export async function adminEventsSummary({ days = 7 } = {}) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not signed in");
+  if (!_userId) throw new Error("Not signed in");
   const since = new Date(); since.setUTCDate(since.getUTCDate() - (days - 1));
   const ymd = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Vancouver", year: "numeric", month: "2-digit", day: "2-digit"

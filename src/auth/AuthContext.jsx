@@ -1,83 +1,85 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+// src/auth/AuthContext.jsx
+// Thin adapter: Clerk handles identity; this context keeps the same useAuth() API
+// so all existing consumers (Grid, Profile, etc.) need zero changes.
+
+import { createContext, useContext, useEffect, useMemo } from "react";
+import { useUser, useClerk } from "@clerk/clerk-react";
 import { supabase } from "../lib/supabaseClient";
+import { setApiUser } from "../data/api";
 
 const AuthContext = createContext({ user: null, loading: true });
 
-export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+// Best-effort: keep a profile row in public.users keyed by Clerk user ID.
+// NOTE: If Supabase RLS policies reference auth.uid() they will need updating
+// to allow Clerk user IDs (e.g. via a service-role upsert or policy change).
+async function ensureProfile(clerkUser) {
+  if (!clerkUser || !supabase) return;
+  try {
+    const display_name =
+      clerkUser.fullName ||
+      clerkUser.firstName ||
+      clerkUser.primaryEmailAddress?.emailAddress?.split("@")[0] ||
+      null;
+    const username =
+      clerkUser.primaryEmailAddress?.emailAddress?.split("@")[0] || null;
 
-  // ensure a profile row exists in public.users
-  async function ensureProfile(user) {
-    if (!user || !supabase) return;
-    const { id, user_metadata } = user;
-    const username = user_metadata?.username || user.email?.split("@")[0] || null;
-    const display_name = user_metadata?.display_name || username;
-
-    const { error } = await supabase
+    await supabase
       .from("users")
-      .upsert({ id, username, display_name }, { onConflict: "id" });
-    if (error) console.error("ensureProfile error", error);
+      .upsert({ id: clerkUser.id, username, display_name }, { onConflict: "id" });
+  } catch (e) {
+    console.warn("ensureProfile:", e?.message ?? e);
   }
+}
 
+export function AuthProvider({ children }) {
+  const { user: clerkUser, isLoaded } = useUser();
+  const { signOut: clerkSignOut } = useClerk();
+
+  // Keep api.js functions in sync with the current user ID.
+  // api.js uses this to decide whether to read/write Supabase or localStorage.
   useEffect(() => {
-    let mounted = true;
+    setApiUser(clerkUser?.id ?? null);
+  }, [clerkUser?.id]);
 
-    async function init() {
-      if (!supabase) return;
-      const { data, error } = await supabase.auth.getSession();
-      if (error) console.error("getSession error", error);
-      if (!mounted) return;
-      setSession(data?.session ?? null);
-      setLoading(false);
-      if (data?.session?.user) ensureProfile(data.session.user);
-    }
+  // Ensure a Supabase profile row on sign-in.
+  useEffect(() => {
+    if (clerkUser) ensureProfile(clerkUser);
+  }, [clerkUser?.id]);
 
-    init();
+  const value = useMemo(() => {
+    const name = clerkUser
+      ? clerkUser.fullName ||
+        clerkUser.firstName ||
+        clerkUser.primaryEmailAddress?.emailAddress?.split("@")[0] ||
+        ""
+      : "";
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      if (newSession?.user) ensureProfile(newSession.user);
-    });
+    return {
+      // Consistent shape for all downstream consumers
+      user: clerkUser
+        ? {
+            id: clerkUser.id,
+            email: clerkUser.primaryEmailAddress?.emailAddress ?? null,
+            name,
+            imageUrl: clerkUser.imageUrl ?? null,
+          }
+        : null,
+      loading: !isLoaded,
 
-    return () => {
-      mounted = false;
-      sub?.subscription?.unsubscribe?.();
-    };
-  }, []);
+      signOut: () => clerkSignOut(),
 
-  const value = useMemo(
-    () => ({
-      user: session?.user ?? null,
-      session,
-      loading,
-      signIn: async (email, password) => {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        return data;
-      },
-      signUp: async (email, password) => {
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        return data;
-      },
-      signOut: async () => {
-        await supabase.auth.signOut();
-      },
       updateName: async (displayName) => {
-        if (!supabase) throw new Error("Supabase not configured");
-        const { error } = await supabase.auth.updateUser({
-          data: { display_name: displayName },
-        });
-        if (error) throw error;
-        const uid = session?.user?.id;
-        if (uid) {
-          await supabase.from("users").update({ display_name: displayName }).eq("id", uid);
+        if (!clerkUser) return;
+        await clerkUser.update({ firstName: displayName });
+        if (supabase) {
+          await supabase
+            .from("users")
+            .update({ display_name: displayName })
+            .eq("id", clerkUser.id);
         }
       },
-    }),
-    [session, loading]
-  );
+    };
+  }, [clerkUser, isLoaded, clerkSignOut]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

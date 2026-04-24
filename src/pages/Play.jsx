@@ -1,6 +1,7 @@
 // src/pages/Play.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useUser, SignInButton } from "@clerk/clerk-react";
 import Grid from "../matrix/Grid";
 import ErrorBoundary from "../components/ErrorBoundary.jsx";
 import ErrorState from "../components/ErrorState.jsx";
@@ -15,9 +16,11 @@ export default function Play() {
   const today = ymdVancouver();
   const ymd = params.ymd || today;
 
+  const { isSignedIn } = useUser();
+
   const [puzzle, setPuzzle] = useState(null);
-  const [status, setStatus] = useState("loading"); 
-  const [gateOpen, setGateOpen] = useState(true);
+  const [status, setStatus] = useState("loading");
+  const [gateOpen, setGateOpen] = useState(!isSignedIn);
 
   useEffect(() => {
     let alive = true;
@@ -232,19 +235,20 @@ export default function Play() {
               {humanDate}
             </div>
 
-            <button
-              onClick={() => nav("/auth")}
-              style={{
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid #e5e7eb",
-                background: "#f8fafc",
-                cursor: "pointer",
-                marginBottom: 12,
-              }}
-            >
-              Sign in / Create account
-            </button>
+            <SignInButton mode="modal">
+              <button
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  border: "1px solid #e5e7eb",
+                  background: "#f8fafc",
+                  cursor: "pointer",
+                  marginBottom: 12,
+                }}
+              >
+                Sign in / Create account
+              </button>
+            </SignInButton>
 
             <button
               onClick={() => setGateOpen(false)}

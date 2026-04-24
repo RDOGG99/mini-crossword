@@ -1,27 +1,19 @@
 // src/matrix/Header.jsx
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext";
+import { Link, useLocation } from "react-router-dom";
+import { UserButton, SignInButton, useUser } from "@clerk/clerk-react";
+import { getUserStats } from "../data/store";
 import SyncBadge from "../components/SyncBadge";
 
 const IS_PROD = process.env.NODE_ENV === "production";
 
 export default function Header() {
-  const { user, signOut } = useAuth();
-  const nav = useNavigate();
+  const { user: clerkUser, isSignedIn, isLoaded } = useUser();
   const location = useLocation();
 
-  const displayName =
-    user?.user_metadata?.display_name ||
-    user?.user_metadata?.username ||
-    (user?.email ? user.email.split("@")[0] : "");
-
-  async function handleSignOut() {
-    try {
-      await signOut();
-    } finally {
-      nav("/", { replace: true });
-    }
-  }
+  // Live streak from localStorage — synchronous, no loading state needed
+  const streak = isSignedIn && clerkUser
+    ? (getUserStats(clerkUser.id)?.currentStreak ?? 0)
+    : 0;
 
   const isActive = (path) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
@@ -29,7 +21,7 @@ export default function Header() {
   return (
     <header className="site-header">
       <div className="header-inner">
-        {/* Logo: "Daily" dark + "Mini" teal */}
+        {/* Logo */}
         <Link to="/" className="site-logo">
           <span className="logo-daily">Daily</span>
           <span className="logo-mini">Mini</span>
@@ -54,25 +46,24 @@ export default function Header() {
           </a>
         </nav>
 
-        {/* Right: streak badge + auth */}
+        {/* Right side */}
         <div className="header-right">
-          <div className="streak-badge" title="Current streak">
-            🔥 <span>0</span>
-          </div>
+          {/* Streak pill — only visible when signed in */}
+          {isSignedIn && (
+            <div className="streak-badge" title="Current streak">
+              🔥 <span>{streak}</span>
+            </div>
+          )}
 
-          {user ? (
-            <>
-              <Link to="/profile" className="header-auth-link">
-                {displayName || "Profile"}
-              </Link>
-              <button onClick={handleSignOut} className="header-sign-out">
-                Sign out
-              </button>
-            </>
-          ) : (
-            <Link to="/auth" className="header-auth-link header-sign-in">
-              Sign in
-            </Link>
+          {/* Auth: Clerk UserButton (signed in) or SignInButton (signed out) */}
+          {isLoaded && (
+            isSignedIn ? (
+              <UserButton />
+            ) : (
+              <SignInButton mode="modal">
+                <button className="header-sign-in">Sign in</button>
+              </SignInButton>
+            )
           )}
 
           {!IS_PROD && <SyncBadge />}

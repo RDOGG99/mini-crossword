@@ -4,7 +4,7 @@ import Cell from "./Cell";
 import ClueList from "./ClueList";
 import { computeNumbering } from "./numbering";
 import { useAuth } from "../auth/AuthContext";
-import { bumpPlayed, getUserStats } from "../data/store";
+import { bumpPlayed, getUserStats, recordCompletion as recordCompletionStore } from "../data/store";
 import { buildSharePayload, copyShare } from "../utils/share";
 import {
   saveProgress,
@@ -613,6 +613,16 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
         });
         metrics.completion(date, elapsedSec, didReveal ? null : errors);
 
+        // Write streak + history to localStorage so the badge updates immediately
+        if (user?.id) {
+          recordCompletionStore(user.id, {
+            elapsedSec,
+            didReveal,
+            errors: errors ?? 0,
+            ymd: date,
+          });
+        }
+
         try {
           trackCompleted({
             ymd: date,
@@ -622,7 +632,7 @@ export default function Grid({ puzzle, started: startedFromParent = undefined })
         } catch {}
 
         try {
-          const stats = await getUserStats?.(user?.id);
+          const stats = getUserStats(user?.id);
           if (stats) setFinishStats(stats);
         } catch {}
       } catch (e) {
